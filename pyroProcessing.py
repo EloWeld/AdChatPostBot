@@ -1,5 +1,6 @@
 import asyncio
 import json
+import traceback
 from typing import List
 
 import requests
@@ -7,6 +8,7 @@ from loader import API_HASH, API_ID, BOT_TOKEN
 from etc.keyboards import Keyboards
 from models import UserbotSession, AutopostSlot
 from pyrogram import Client
+from pyrogram.types import Dialog, Chat
 import pyrogram
 from pyrogram.errors.exceptions.unauthorized_401 import *
 import loguru
@@ -43,71 +45,24 @@ def start_pyro_client(_, stop_event, usession: UserbotSession):
     async def run_client():
         client = userbotSessionToPyroClient(usession)
 
-        def checkMessage(message: pyrogram.types.Message, group: AutopostSlot):
-            is_good_message = False
-            # If channel
-            if message.from_user is None and message.sender_chat is not None:
-                message.from_user = message.sender_chat
-            # dont Recursion pls
-            if group.chat_id == message.chat.id:
-                is_good_message = False
-                return False
-            text = message.text if message.text is not None else message.caption if message.caption is not None else None
-            if text is None:
-                return False
-            # Check message sender
-            if str(message.from_user.id) in group.blacklist_users or message.from_user.username in group.blacklist_users:
-                is_good_message = False
-                return False
-            # Check keywords
-            for keyword in group.keywords:
-                if keyword in text.lower():
-                    is_good_message = True
-                    break
-            # Check minus words
-            if is_good_message:
-                for bad_keyword in group.bad_keywords:
-                    if bad_keyword in text.lower():
-                        is_good_message = False
-                        return False
-            return is_good_message
 
         @client.on_message()
         async def handle_messages(client: pyrogram.Client, message: pyrogram.types.Message):
             import traceback
             groups: List[AutopostSlot] = AutopostSlot.objects.all()
-            for group in groups:
-                if usession.id not in group.ubs:
-                    continue
-                is_good_message = checkMessage(message, group)
-                if is_good_message:
-                    try:
-                        if message.chat.username:
-                            linkToMessage = f"https://t.me/{message.chat.username}/{message.id}"
-                        else:
-                            linkToMessage = f"https://t.me/c/{str(message.chat.id).replace('-100', '').replace('-', '')}/{message.id}"
-
-                        # Send message using requests
-                        text = f"В группе <b>{message.chat.title}</b> есть отобранное сообщение\n\n{message.text[:4000] if message.text else message.caption[:4000]}\n\n<b>Кто: <code>{message.from_user.id}</code>|{message.from_user.first_name}|{message.from_user.last_name}|@{message.from_user.username}</b>"
-                        sendMessageFromBotSync(group.chat_id, text, Keyboards.gotoMessage(linkToMessage))
-
-                        loguru.logger.success(
-                            f"Forward message {message.id} from chat {message.chat.id}")
-                        group.forwarded_msgs += [dict(from_chat=message.chat.id,
-                                                      from_chat_title=message.chat.title,
-                                                      message_id=message.id,
-                                                      message_text=message.text,
-                                                      sender_id=message.from_user.id,
-                                                      sender_username=message.from_user.username)]
-                        group.save()
-                    except Exception as e:
-                        loguru.logger.error(
-                            f"Can't forward message {message.id} from chat {message.chat.id}; error: {e}, traceback: {traceback.format_exc()}")
-                        # await client.send_message(group.chat_id, f"Can't forward message {message.id} from chat {message.chat.id}; error: {e}, traceback: {traceback.format_exc()}")
-
+            
         # Start the client
         try:
             await client.start()
+            dialogs = client.get_dialogs()
+            async for dialog in dialogs:
+                dialog: Dialog = dialog
+                chat: Chat = dialog.chat
+                chat_id = chat.id
+                if chat.type not in [pyrogram.enums.ChatType.GROUP, pyrogram.enums.ChatType.SUPERGROUP]:
+                    continue
+                usession.chats[str(chat_id)] = json.loads(json.dumps(chat.__dict__, ensure_ascii=False, default=str))
+            usession.save()
             while not stop_event.is_set():
                 await asyncio.sleep(1)  # Adjust sleep time as needed
 
@@ -121,6 +76,6 @@ def start_pyro_client(_, stop_event, usession: UserbotSession):
             usession.is_dead = True
             usession.save()
         except Exception as e:
-            loguru.logger.error(f"Can't start userbot client, error: {e} {type(e)}")
+            loguru.logger.error(f"Can't start userbot client, error: {e} {type(e)} {traceback.format_exc()}")
                 
     asyncio.run(run_client())

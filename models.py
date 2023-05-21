@@ -24,12 +24,18 @@ class UserbotSession(MongoModel):
     string_session = fields.CharField(blank=True)
     password = fields.CharField(blank=True)
     is_dead = fields.BooleanField(default=False)
+    chats = fields.DictField(blank=True)
     
     class Meta:
         write_concern = WriteConcern(j=True)
         connection_alias = 'pymodm-conn'
         collection_name = 'UserbotSessions'
-        
+
+
+class PostingField(MongoModel):
+    id = fields.CharField()
+    text = fields.CharField()
+    sent_count = fields.IntegerField(default=0)
 
 class AutopostSlot(MongoModel):
     STATUS_CHOICES = {
@@ -43,10 +49,10 @@ class AutopostSlot(MongoModel):
     owner_id = fields.ReferenceField(TgUser)
     emoji = fields.CharField(max_length=2)
     status = fields.CharField(choices=list(STATUS_CHOICES.keys()), verbose_name='Status', default='inactive')
-    ubots = fields.ListField(fields.ReferenceField(UserbotSession))
-    postings = fields.ListField()
-    chats = fields.ListField()
-    schedule = fields.ListField(fields.DictField())
+    ubots = fields.ListField(fields.ReferenceField(UserbotSession), blank=True)
+    postings = fields.ListField(fields.EmbeddedDocumentField(PostingField), blank=True)
+    chats = fields.DictField(blank=True)
+    schedule = fields.ListField(fields.DictField(), blank=True)
     reports_group_id = fields.BigIntegerField()
     
     def get_verbose_status(self):

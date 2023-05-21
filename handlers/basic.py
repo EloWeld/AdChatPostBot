@@ -17,10 +17,10 @@ async def _(c: CallbackQuery, state: FSMContext):
     await c.message.edit_text("🏠 Главное меню", reply_markup=Keyboards.startMenu(user))
 
 
+@dp.callback_query_handler(text_contains="hide", state="*")
 @dp.callback_query_handler(text_contains="cancel_popup", state="*")
 async def _(c: CallbackQuery, state: FSMContext):
     await c.message.delete()
-
 
 # Start command
 @dp.message_handler(commands=["start"], state="*")

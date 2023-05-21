@@ -5,8 +5,9 @@ from aiogram.types import \
     KeyboardButton as Button, \
     InlineKeyboardMarkup as IKeyboard, \
     InlineKeyboardButton as IButton
+from etc.utils import cutText, remove_html_tags
 
-from models import AutopostSlot, UserbotSession
+from models import AutopostSlot, PostingField, UserbotSession
 
 class Keyboards:
     class US_Auth:
@@ -34,6 +35,39 @@ class Keyboards:
             k.row(IButton("‹ Назад", callback_data=f"|usessions:main"))
             return k
         
+        
+    class SlotChats:
+        @staticmethod
+        def chooseUserbotForSelectChats(slot: AutopostSlot):
+            k = IKeyboard()
+            for ub in slot.ubots:
+                k.row(IButton(f"{ub.name} | {ub.login}", callback_data=f"|slot_chats:select_ubot_chats:{slot.id}:{ub.id}"))
+            k.row(IButton("‹ Назад", callback_data=f"|slots:see:{slot.id}"))
+            return k
+        
+        @staticmethod
+        def chooseChatsFromUbot(slot: AutopostSlot, ubot: UserbotSession, suc: dict):
+            k = IKeyboard()
+            for chat_id, chat in ubot.chats.items():
+                prefix = "✅ " if chat_id in slot.chats or chat_id in suc else "☑️ "
+                k.row(IButton(prefix + f"{chat['title']} | {chat_id}", callback_data=f"|slot_chats:suc:{slot.id}:{ubot.id}:{chat_id}"))
+            if len(suc) > 0:
+                k.row(IButton("🏁 Добавить выбранные", callback_data=f"|slot_chats:apply_suc:{slot.id}"))
+            k.row(IButton("‹ Назад", callback_data=f"|slot_menu:chats:{slot.id}"))
+            return k
+        
+        @staticmethod
+        def seeSlotChats(slot: AutopostSlot):
+            k = IKeyboard()
+            for chat_id, chat in slot.chats.items():
+                k.row(IButton(f"💬 {chat['title']} | {chat_id}", callback_data=f"|slot_chats:see_chat:{slot.id}:{chat_id}"))
+                
+            k.row(IButton("➕ Добавить из юзербота", callback_data=f"|slot_chats:add_chat_from_ubot:{slot.id}"))
+            k.row(IButton("➕ Добавить списком ChatID", callback_data=f"|slot_chats:add_chats_with_text:{slot.id}"))
+            k.row(IButton("‹ Назад", callback_data=f"|slots:see:{slot.id}"))
+            return k
+        
+        
     class Slots:
         @staticmethod
         def main(slots: List[AutopostSlot]):
@@ -50,17 +84,24 @@ class Keyboards:
             any_selected = selected != []
             for ub in userbots:
                 s = "" if ub.id not in selected else "☑️ "
-                k.row(IButton(s + f"{ub.name} | {ub.login}", callback_data=f"|slot_menu:choose_ubots:{ub.id}"))
+                k.row(IButton(s + f"{ub.name} | {ub.login}", callback_data=f"|choose_ubots:{ub.id}"))
             if any_selected:
-                k.row(IButton("🏁 Завершить", callback_data=f"|slot_menu:choose_ubots:done"))
+                k.row(IButton("🏁 Завершить", callback_data=f"|choose_ubots:done"))
             if slot:
                 k.row(IButton("‹ Назад", callback_data=f"|slots:see:{slot.id}"))
             return k
         
+        
         @staticmethod
-        def showSlot(slot):
+        def showSlot(slot: AutopostSlot):
             k = IKeyboard()
             k.row(IButton("‹ Назад", callback_data=f"|groups:main"))
+            return k
+        
+        @staticmethod
+        def addPostings(slot: AutopostSlot):
+            k = IKeyboard()
+            k.row(IButton("‹ Назад", callback_data=f"|slot_menu:postings:{slot.id}:main"))
             return k
         
         @staticmethod
@@ -73,7 +114,7 @@ class Keyboards:
             key = "logs"
             k.insert(IButton("🪵 Изменить чат для логов", callback_data=f"|slot_menu:change:{key}:{slot.id}"))
             k.row(IButton("💬 Чаты для расслыки", callback_data=f"|slot_menu:chats:{slot.id}"))
-            k.insert(IButton("💌 Контент рассылки", callback_data=f"|slot_menu:postings:{slot.id}"))
+            k.insert(IButton("💌 Контент рассылки", callback_data=f"|slot_menu:postings:{slot.id}:main"))
             k.row(IButton("🤖 Подключенные юзерботы", callback_data=f"|slot_menu:ubots:{slot.id}"))
             k.row(IButton("📆 Расписание", callback_data=f"|slot_menu:schedule:{slot.id}"))
            
@@ -81,6 +122,18 @@ class Keyboards:
             k.insert(IButton("‹ Назад", callback_data=f"|slots:main"))
             return k
                 
+        @staticmethod
+        def postingsMenu(slot: AutopostSlot):
+            k = IKeyboard()
+            for posting in slot.postings:
+                posting: PostingField = posting
+                k.row(IButton(f"📃 {posting.id} | {cutText(remove_html_tags(posting.text), 25)}", callback_data=f"|slot_menu:postings:{slot.id}:{posting.id}:see_message"))
+                k.insert(IButton(f"🗑️", callback_data=f"|slot_menu:postings:{slot.id}:{posting.id}:del_message"))
+            if len(slot.postings) > 2:
+                k.row(IButton("📃 Вывести все", callback_data=f"|slot_menu:postings:{slot.id}:preview_messages"))
+            k.row(IButton("➕ Добавить сообщения", callback_data=f"|slot_menu:postings:{slot.id}:add_messages"))
+            k.row(IButton("‹ Назад", callback_data=f"|slots:see:{slot.id}"))
+            return k
     
     @staticmethod
     def startMenu(user):
@@ -130,4 +183,10 @@ class Keyboards:
     def back(path):
         k = IKeyboard()
         k.row(IButton("‹ Назад", callback_data=path))
+        return k
+    
+    @staticmethod
+    def hide():
+        k = IKeyboard()
+        k.row(IButton("➖ Скрыть ➖", callback_data="hide"))
         return k

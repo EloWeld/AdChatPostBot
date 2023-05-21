@@ -9,3 +9,6 @@ class AuthSessionState(StatesGroup):
 class ChangeSlotStates(StatesGroup):
     name = State()
     schedule = State()
+    postings = State()
+    logsChat = State()
+    posting_chats = State()
