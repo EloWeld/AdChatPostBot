@@ -34,7 +34,7 @@ async def _(c: CallbackQuery, state: FSMContext):
         await c.message.edit_text("Выберите сессию или добавьте новую", reply_markup=Keyboards.USessions.main(sessions))
     if action == "new":
         await c.answer()
-        await c.message.answer("⚠️ Внимание! Не авторизируйте аккаунт, через который общаетесь с ботом! Телеграм заблокирует разглашение кода для входа из-за чего выполнить вход не удасться!\n\n✏️ Введите имя сессии:")
+        await c.message.answer("⚠️ Внимание! Не авторизируйте аккаунт, через который общаетесь с ботом! Телеграм заблокирует разглашение кода для входа из-за чего выполнить вход не удасться!\n\n✏️ Введите название для вашего юзербота:")
         await AuthSessionState.session_name.set()
     if action == "see":
         us: UserbotSession = UserbotSession.objects.get(
@@ -45,7 +45,7 @@ async def _(c: CallbackQuery, state: FSMContext):
         await c.answer()
         us: UserbotSession = UserbotSession.objects.get(
             {'_id': c.data.split(":")[2]})
-        await c.message.answer("⚠️ Внимание! Не авторизируйте аккаунт, через который общаетесь с ботом! Телеграм заблокирует разглашение кода для входа из-за чего выполнить вход не удасться!\n\n✏️ Введите НОВОЕ имя сессии:")
+        await c.message.answer("⚠️ Внимание! Не авторизируйте аккаунт, через который общаетесь с ботом! Телеграм заблокирует разглашение кода для входа из-за чего выполнить вход не удасться!\n\n✏️ Введите НОВОЕ название для юзербота:")
         await state.update_data(editing_us_id=us.id)
         await AuthSessionState.session_name.set()
     if action == "delete_popup":

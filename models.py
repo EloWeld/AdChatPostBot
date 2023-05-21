@@ -1,3 +1,4 @@
+from uuid import uuid4
 from pymodm import MongoModel, fields
 from pymongo.write_concern import WriteConcern
 
@@ -8,26 +9,12 @@ class TgUser(MongoModel):
     last_name = fields.CharField(blank=True)
     username = fields.CharField(blank=True)
     is_admin = fields.BooleanField(default=False)    
+    is_authenticated = fields.BooleanField(default=False)    
     
     class Meta:
         write_concern = WriteConcern(j=True)
         connection_alias = 'pymodm-conn'
         collection_name = 'Users'
-
-class TgGroup(MongoModel):
-    chat_id = fields.IntegerField(primary_key=True)
-    title = fields.CharField(blank=True, default="UnnamedGroup")
-    owner_id = fields.ReferenceField(TgUser)
-    keywords = fields.ListField(fields.CharField(), blank=True)
-    bad_keywords = fields.ListField(fields.CharField(), blank=True)
-    ubs = fields.ListField(fields.CharField(), blank=True)
-    blacklist_users = fields.ListField(fields.CharField(), blank=True)
-    forwarded_msgs = fields.ListField(fields.DictField(), blank=True)
-    
-    class Meta:
-        write_concern = WriteConcern(j=True)
-        connection_alias = 'pymodm-conn'
-        collection_name = 'Groups'
         
 class UserbotSession(MongoModel):
     id = fields.CharField(primary_key=True)
@@ -43,4 +30,31 @@ class UserbotSession(MongoModel):
         connection_alias = 'pymodm-conn'
         collection_name = 'UserbotSessions'
         
+
+class AutopostSlot(MongoModel):
+    STATUS_CHOICES = {
+        'active': '♻️ Включен',
+        'inactive': '❌ Выключен',
+        'banned': '🚩 Сломан'
+    }
+    
+    id = fields.CharField(primary_key=True)
+    name = fields.CharField()
+    owner_id = fields.ReferenceField(TgUser)
+    emoji = fields.CharField(max_length=2)
+    status = fields.CharField(choices=list(STATUS_CHOICES.keys()), verbose_name='Status', default='inactive')
+    ubots = fields.ListField(fields.ReferenceField(UserbotSession))
+    postings = fields.ListField()
+    chats = fields.ListField()
+    schedule = fields.ListField(fields.DictField())
+    reports_group_id = fields.BigIntegerField()
+    
+    def get_verbose_status(self):
+        return AutopostSlot.STATUS_CHOICES.get(self.status)
+    
+    
+    class Meta:
+        write_concern = WriteConcern(j=True)
+        connection_alias = 'pymodm-conn'
+        collection_name = 'Slots'
     

@@ -6,7 +6,7 @@ from aiogram.types import \
     InlineKeyboardMarkup as IKeyboard, \
     InlineKeyboardButton as IButton
 
-from models import TgGroup, UserbotSession
+from models import AutopostSlot, UserbotSession
 
 class Keyboards:
     class US_Auth:
@@ -23,7 +23,7 @@ class Keyboards:
             for session in sessions:
                 k.row(IButton(session.name, callback_data=f"|usessions:see:{session.id}"))
             k.row(IButton("➕ Добавить", callback_data=f"|usessions:new"))
-            k.row(IButton("⬅️ Назад", callback_data=f"|main"))
+            k.row(IButton("‹ Назад", callback_data=f"|main"))
             return k
         
         @staticmethod
@@ -31,75 +31,61 @@ class Keyboards:
             k = IKeyboard()
             k.row(IButton("♻️ Переавторизовать", callback_data=f"|usessions:reauthorize:{usession.id}"))
             k.row(IButton("🗑️ Удалить", callback_data=f"|usessions:delete_popup:{usession.id}"))
-            k.row(IButton("⬅️ Назад", callback_data=f"|usessions:main"))
+            k.row(IButton("‹ Назад", callback_data=f"|usessions:main"))
             return k
         
-    class Groups:
+    class Slots:
         @staticmethod
-        def main(groups: List[TgGroup]):
+        def main(slots: List[AutopostSlot]):
             k = IKeyboard()
-            for group in groups:
-                k.row(IButton(group.title, callback_data=f"|groups:see:{group.chat_id}"))
-            k.row(IButton("➕ Добавить", callback_data=f"|groups:new"))
-            k.row(IButton("⬅️ Назад", callback_data=f"|main"))
+            for slot in slots:
+                k.row(IButton(f"{slot.emoji} {slot.name}", callback_data=f"|slots:see:{slot.id}"))
+            k.row(IButton("➕ Добавить", callback_data=f"|slots:new"))
+            k.row(IButton("‹ Назад", callback_data=f"|main"))
             return k
         
         @staticmethod
-        def chooseUserbots(userbots: List[UserbotSession], selected=[], group=None):
+        def chooseUserbots(userbots: List[UserbotSession], selected=[], slot=None):
             k = IKeyboard()
             any_selected = selected != []
             for ub in userbots:
                 s = "" if ub.id not in selected else "☑️ "
-                k.row(IButton(s + f"{ub.name} | {ub.login}", callback_data=f"|choose_ubots:choose:{ub.id}"))
+                k.row(IButton(s + f"{ub.name} | {ub.login}", callback_data=f"|slot_menu:choose_ubots:{ub.id}"))
             if any_selected:
-                k.row(IButton("🏁 Завершить", callback_data=f"|choose_ubots:done"))
-            if group:
-                k.row(IButton("⬅️ Назад", callback_data=f"|groups:see:{group.chat_id}"))
+                k.row(IButton("🏁 Завершить", callback_data=f"|slot_menu:choose_ubots:done"))
+            if slot:
+                k.row(IButton("‹ Назад", callback_data=f"|slots:see:{slot.id}"))
             return k
         
         @staticmethod
-        def showGroup(group):
+        def showSlot(slot):
             k = IKeyboard()
-            k.row(IButton("⬅️ Назад", callback_data=f"|groups:main"))
+            k.row(IButton("‹ Назад", callback_data=f"|groups:main"))
             return k
         
         @staticmethod
-        def editGroup(group: TgGroup):
+        def editSlot(slot: AutopostSlot):
             k = IKeyboard()
-            
-            # Я решил отказаться от изменения chat id, так как он являлся primary-key в бд коллекции
-            # key = "_id"
-            # k.row(IButton("ID чата", callback_data=f"|groups:change:{group.chat_id}:{key}"))
-            
-            key = "ubs"
-            k.row(IButton("🤖 Юзерботы", callback_data=f"|groups:change_ubots:{group.chat_id}"))
-            key = "title"
-            k.row(IButton("🏷️ Название", callback_data=f"|groups:change:{group.chat_id}:{key}"))
-            
-            key = "keywords"
-            k.row(IButton("Ключ-слова", callback_data=f"|groups:change:{group.chat_id}:{key}"))
-            k.insert(IButton("➕", callback_data=f"|groups:add:{group.chat_id}:{key}"))
-            k.insert(IButton("🗑️", callback_data=f"|groups:clear_popup:{group.chat_id}:{key}"))
-            
-            key = "bad_keywords"
-            k.row(IButton("Минус-слова", callback_data=f"|groups:change:{group.chat_id}:{key}"))
-            k.insert(IButton("➕", callback_data=f"|groups:add:{group.chat_id}:{key}"))
-            k.insert(IButton("🗑️", callback_data=f"|groups:clear_popup:{group.chat_id}:{key}"))
-            
-            key = "blacklist_users"
-            k.row(IButton("Блэк-лист пользователи", callback_data=f"|groups:change:{group.chat_id}:{key}"))
-            k.insert(IButton("➕", callback_data=f"|groups:add:{group.chat_id}:{key}"))
-            k.insert(IButton("🗑️", callback_data=f"|groups:clear_popup:{group.chat_id}:{key}"))
-            
-            k.row(IButton("🗑️ Удалить группу 🗑️", callback_data=f"|groups:delete_group_popup:{group.chat_id}"))
-            k.row(IButton("⬅️ Назад", callback_data=f"|groups:main"))
+           
+            k.row(IButton("[❌›✅] Включить слот" if slot.status=='inactive' else "[✅›❌] Вылючить слот", callback_data=f"|slot_menu:turn:{slot.id}"))
+            key = "name"
+            k.row(IButton("🏷️ Изменить название", callback_data=f"|slot_menu:change:{key}:{slot.id}"))
+            key = "logs"
+            k.insert(IButton("🪵 Изменить чат для логов", callback_data=f"|slot_menu:change:{key}:{slot.id}"))
+            k.row(IButton("💬 Чаты для расслыки", callback_data=f"|slot_menu:chats:{slot.id}"))
+            k.insert(IButton("💌 Контент рассылки", callback_data=f"|slot_menu:postings:{slot.id}"))
+            k.row(IButton("🤖 Подключенные юзерботы", callback_data=f"|slot_menu:ubots:{slot.id}"))
+            k.row(IButton("📆 Расписание", callback_data=f"|slot_menu:schedule:{slot.id}"))
+           
+            k.row(IButton("🗑️ Удалить слот", callback_data=f"|slot_menu:delete_slot:{slot.id}"))
+            k.insert(IButton("‹ Назад", callback_data=f"|slots:main"))
             return k
                 
     
     @staticmethod
     def startMenu(user):
         k = IKeyboard()
-        k.row(IButton("💬 Группы", callback_data=f"|groups:main"))
+        k.row(IButton("🗃️ Слоты", callback_data=f"|slots:main"))
         k.row(IButton("🤖 Юзерботы", callback_data=f"|usessions:main"))
         return k
             
@@ -138,3 +124,10 @@ class Keyboards:
             inline_keyboard.append(keyboard_row)
 
         return {"inline_keyboard": inline_keyboard}
+                
+    
+    @staticmethod
+    def back(path):
+        k = IKeyboard()
+        k.row(IButton("‹ Назад", callback_data=path))
+        return k

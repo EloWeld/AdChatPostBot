@@ -5,7 +5,7 @@ from typing import List
 import requests
 from loader import API_HASH, API_ID, BOT_TOKEN
 from etc.keyboards import Keyboards
-from models import UserbotSession, TgGroup
+from models import UserbotSession, AutopostSlot
 from pyrogram import Client
 import pyrogram
 from pyrogram.errors.exceptions.unauthorized_401 import *
@@ -43,7 +43,7 @@ def start_pyro_client(_, stop_event, usession: UserbotSession):
     async def run_client():
         client = userbotSessionToPyroClient(usession)
 
-        def checkMessage(message: pyrogram.types.Message, group: TgGroup):
+        def checkMessage(message: pyrogram.types.Message, group: AutopostSlot):
             is_good_message = False
             # If channel
             if message.from_user is None and message.sender_chat is not None:
@@ -75,7 +75,7 @@ def start_pyro_client(_, stop_event, usession: UserbotSession):
         @client.on_message()
         async def handle_messages(client: pyrogram.Client, message: pyrogram.types.Message):
             import traceback
-            groups: List[TgGroup] = TgGroup.objects.all()
+            groups: List[AutopostSlot] = AutopostSlot.objects.all()
             for group in groups:
                 if usession.id not in group.ubs:
                     continue
@@ -113,7 +113,7 @@ def start_pyro_client(_, stop_event, usession: UserbotSession):
 
             await client.stop()
         except (AuthKeyUnregistered, AuthKeyInvalid, AuthKeyPermEmpty):
-            groups: List[TgGroup] = TgGroup.objects.all()
+            groups: List[AutopostSlot] = AutopostSlot.objects.all()
             for gr in groups:
                 if usession.id in gr.ubs:
                     sendMessageFromBotSync(gr.chat_id, f"⚠️ Привязанный к этой группе юзербот <b>{usession.name}</b> с телефоном <code>{usession.login}</code> вылетел из сессии и не может проверять сообщения в чатах! Замените юзербота или переавторизуйте его")

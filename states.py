@@ -6,17 +6,6 @@ class AuthSessionState(StatesGroup):
     code = State()
     password = State()
     
-class AddGroupState(StatesGroup):
+class ChangeSlotStates(StatesGroup):
     name = State()
-    chatID = State()
-    keywords = State()
-    bad_keywords = State()
-    ubs = State()
-    blacklist = State()
-    
-class ChangeGroupStates(StatesGroup):
-    Add = State()
-    Change = State()
-    Clear = State()
-    ubs = State()
-    
+    schedule = State()

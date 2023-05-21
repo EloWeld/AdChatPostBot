@@ -6,7 +6,7 @@ from loader import *
 from aiogram.dispatcher.filters import Command
 from aiogram.dispatcher import FSMContext
 from aiogram.types import *
-from models import TgGroup, TgUser
+from models import AutopostSlot, TgUser
 from states import AuthSessionState
 
 
@@ -14,7 +14,7 @@ from states import AuthSessionState
 async def _(c: CallbackQuery, state: FSMContext):
     # Send welcome
     user = TgUser.objects.get({'_id': c.from_user.id})
-    await c.message.edit_text("Меню", reply_markup=Keyboards.startMenu(user))
+    await c.message.edit_text("🏠 Главное меню", reply_markup=Keyboards.startMenu(user))
 
 
 @dp.callback_query_handler(text_contains="cancel_popup", state="*")
@@ -43,7 +43,7 @@ async def start_command(message: types.Message, state: FSMContext=None):
     user.save()
 
     # Send welcome
-    await bot.send_message(chat_id=message.chat.id, text="Привет! Я твой бот.", reply_markup=Keyboards.startMenu(user))
+    await bot.send_message(chat_id=message.chat.id, text="🏠 Главное меню", reply_markup=Keyboards.startMenu(user))
 
     # Set bot commands
     await bot.set_my_commands([])
@@ -59,7 +59,7 @@ async def start_command(message: types.Message, state: FSMContext=None):
 async def get_stats(message: types.Message):
     chat_id = message.chat.id
 
-    groups: List[TgGroup] = TgGroup.objects.all()
+    groups: List[AutopostSlot] = AutopostSlot.objects.all()
     sender_groups = {}
     fwded_messages_count = 0
     for gr in groups:

@@ -3,11 +3,16 @@ from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import ParseMode
 from loguru import logger
+from middlewares.auth_middleware import AuthMiddleware
 from middlewares.user_middleware import TgUserMiddleware
 from pymodm.connection import connect
 from dotenv import load_dotenv
 import os
 import pymongo
+from faker import Faker
+
+# Инициализируем Faker
+fake = Faker()
 
 # Environment variables
 load_dotenv()
@@ -47,10 +52,11 @@ ms = MemoryStorage()
 dp:Dispatcher = Dispatcher(bot, storage=ms)
 dp.middleware.setup(LoggingMiddleware())
 dp.middleware.setup(TgUserMiddleware())
+dp.middleware.setup(AuthMiddleware())
 
 # Logging initialization
 logger.add("logs/botlog.log", rotation="500 MB", enqueue=True)  # Запись в файл "app.log", поворот каждые 500 МБ
 
 # Global Variables
-threads = []
+threads = {}
 pyrogram_clients = []

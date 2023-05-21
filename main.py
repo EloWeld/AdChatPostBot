@@ -18,7 +18,7 @@ async def on_start_bot():
 async def main_async():
     global threads
     all_sessions: List[UserbotSession] = UserbotSession.objects.all()
-    threads = {}
+    threads.clear()
 
     for usession in all_sessions:
         try:
