@@ -1,10 +1,10 @@
+import json
 import re
 from typing import List
-
+from loader import bot
 from loguru import logger
 import pyrogram
-from models import TgUser
-from loader import bot
+from models import TgUser, UserbotSession
 
 async def notify_admins(text: str):
     admins: List[TgUser] = TgUser.objects.raw({"is_admin": True})
@@ -71,3 +71,31 @@ async def download_chat_photo(client: pyrogram.Client, chat_id: int, photopath: 
     except Exception as e:
         logger.error(f"Error downloading photo: {e}")
     return False
+
+# Синхронная отправка сообщений бота
+def sendMessageFromBotSync(chat_id, text, reply_markup=None):
+    from loader import BOT_TOKEN, bot
+    import requests
+    if reply_markup is not None:
+        reply_markup = json.dumps({'inline_keyboard': [[{'text': button.text, 'callback_data': button.callback_data, 'url': button.url} for button in row] for row in reply_markup.inline_keyboard]}, ensure_ascii=False, indent=4)
+    
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "reply_markup": reply_markup,
+        "parse_mode": "HTML",
+    }
+
+    response = requests.post(url, data=payload)
+
+    return response.status_code == 200
+
+def userbotSessionToPyroClient(session: UserbotSession) -> pyrogram.Client:
+    from loader import API_ID, API_HASH
+    return pyrogram.Client(
+        name=session.name,
+        session_string=session.string_session,
+        api_id=API_ID,
+        api_hash=API_HASH,
+    )

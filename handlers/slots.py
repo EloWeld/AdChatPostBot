@@ -15,6 +15,7 @@ from aiogram.dispatcher.filters import Command
 from aiogram.dispatcher import FSMContext
 from aiogram.types import *
 from models import AutopostSlot, TgUser, UserbotSession
+from slotsThreads import slot_updated
 from states import ChangeSlotStates
 
 
@@ -22,8 +23,9 @@ from states import ChangeSlotStates
 async def sendSlot(msg: Message, slot: AutopostSlot, edit=False):
     func = msg.answer if not edit else msg.edit_text
 
-    schdeule_text = "❌ Не установлено" if len(slot.schedule) == 0 else '\n'.join(f"<code>{x['min']}-{x['max']}</code>" for x in slot.schedule)
-    postings_text = "❌ Не установлено" if len(slot.postings) == 0 else '\n'.join(f"Сообщение #{i}: отправлено <code>{x.sent_count}</code> раз" for i, x in enumerate(slot.postings))
+    schdeule_text = "❌ Не установлено" if len(slot.schedule) == 0 else '\n'.join(f"▫️ <code>{x['min']}-{x['max']}</code>" for x in slot.schedule)
+    postings_text = "❌ Не установлено" if len(slot.postings) == 0 else '\n'.join(f"▫️ Сообщение #{i}: отправлено <code>{x.sent_count}</code> раз" for i, x in enumerate(slot.postings))
+    chats_text = "❌ Нет чатов" if len(slot.chats) == 0 else f"▫️ Подключено {len(slot.chats)} чатов, отправлено <code>{sum([x['sent_count'] if 'sent_count' in x else 0 for x in slot.chats.values()])}</code> сообщений"
 
     await func(f"{slot.emoji} Слот <b>{slot.name}</b> <code>#{slot.id}</code>\n\n"
                f"<b>📝 Информация:</b>\n"
@@ -34,7 +36,9 @@ async def sendSlot(msg: Message, slot: AutopostSlot, edit=False):
                f"<b>📆 Расписание:</b>\n"
                f"{schdeule_text}\n\n"
                f"<b>💌 Контент рассылки:</b>\n"
-               f"{postings_text}\n\n", 
+               f"{postings_text}\n\n"
+               f"<b>💬 Чаты:</b>\n"
+               f"{chats_text}\n\n", 
                reply_markup=Keyboards.Slots.editSlot(slot))
 
 async def sendSlotsMenu(msg: Message, edit=False):
@@ -74,9 +78,9 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
 
         if contains_photo:
             await c.message.answer_photo(InputFile(photopath), caption=msg_text,
-                                         reply_markup=Keyboards.hide())
+                                         reply_markup=Keyboards.Chats.menu(slot, chat))
         else:
-            await c.message.answer(msg_text, reply_markup=Keyboards.hide())
+            await c.message.answer(msg_text, reply_markup=Keyboards.Chats.menu(slot, chat))
 
     
     if actions[0] == "add_chat_from_ubot":
@@ -137,7 +141,7 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
             
         await c.answer()
     else:
-        ub_id = c.data.split(':')[2]
+        ub_id = c.data.split(':')[1]
         slot: AutopostSlot = None
         if 'slot_id' in stateData:
             slot: AutopostSlot = AutopostSlot.objects.get({"_id": stateData['slot_id']})
@@ -158,7 +162,7 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
 
     if actions[0] == "delete_slot":
         await c.answer()
-        slot: AutopostSlot = AutopostSlot.objects.get({'_id': actions[2]})
+        slot: AutopostSlot = AutopostSlot.objects.get({'_id': actions[1]})
         if actions[-1] == "!":
             await c.message.answer(f"🗑️ Слот <b>{slot.name}</b> <code>#{slot.id}</code> удалён")
             slot.delete()
@@ -181,6 +185,9 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
             slot.status = 'inactive' if slot.status == 'active' else 'active'
             slot.save()
             await sendSlot(c.message, slot, edit=True)
+            await slot_updated(slot)
+        else:
+            await c.answer("😢 Невозможно включить слот", show_alert=True)
         
     if actions[0] == "schedule":
         slot = AutopostSlot.objects.get({"_id": actions[1]})
@@ -213,8 +220,6 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
             await ChangeSlotStates.postings.set()
         if actions[-1] == "see_message":
             message_id = actions[-2]
-            slot.postings = [x for x in slot.postings if x.id != message_id]
-            slot.save()
             await c.message.answer([x for x in slot.postings if x.id == message_id][0].text, Keyboards.hide())
         if actions[-1] == "del_message":
             message_id = actions[-2]
@@ -231,10 +236,10 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
     if actions[0] == "ubots":
         slot = AutopostSlot.objects.get({"_id": actions[1]})
         all_userbots = UserbotSession.objects.all()
+        ubots = [x.id for x in slot.ubots]
         await c.message.edit_text("🤖 Выберите юзерботов которые будут работать в этом слоте",
-                                  reply_markup=Keyboards.Slots.chooseUserbots(all_userbots, slot.ubots, slot))
-        await state.update_data(slot_id=slot.id, ubots=slot.ubots)
-        await ChangeSlotStates.schedule.set()
+                                  reply_markup=Keyboards.Slots.chooseUserbots(all_userbots, ubots, slot))
+        await state.update_data(slot_id=slot.id, ubots=ubots)
                 
     if actions[0] == "change":
         slot = AutopostSlot.objects.get({"_id": actions[2]})
@@ -341,6 +346,7 @@ async def _(message: types.Message, state: FSMContext):
     await message.answer("💌 Меню сообщений для рассылки", reply_markup=Keyboards.Slots.postingsMenu(slot))
     await state.finish()
     await stateData['xm'].delete()
+    await slot_updated(slot)
 
 
 
@@ -360,6 +366,7 @@ async def _(message: types.Message, state: FSMContext):
 
     await sendSlot(message, slot)
     await state.finish()
+    asyncio.create_task(slot_updated(slot))
 
 
 
@@ -394,3 +401,4 @@ async def _(message: types.Message, state: FSMContext):
     await message.answer("💬 Меню подключённых чатов для рассылки",
                                   reply_markup=Keyboards.Slots.seeSlotChats(slot))
     await state.finish()
+    await slot_updated(slot)

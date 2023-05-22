@@ -1,11 +1,13 @@
 import asyncio
+from functools import partial
 import threading
 from typing import List
-
+import aiocron
 from loguru import logger
-from loader import dp, threads, bot, MDB
+from loader import dp, threads, bot, MDB, slots_jobs
 from handlers import *
-from pyroProcessing import start_pyro_client
+from pyroThreads import start_pyro_client
+from slotsThreads import send_slot_message
 
 
 async def on_start_bot():
@@ -17,18 +19,37 @@ async def on_start_bot():
 
 async def main_async():
     global threads
+    global slots_jobs
     all_sessions: List[UserbotSession] = UserbotSession.objects.all()
+    all_slots: List[AutopostSlot] = AutopostSlot.objects.all()
     threads.clear()
 
+    logger.info("Starting userbots threads...")
     for usession in all_sessions:
         try:
-            client = userbotSessionToPyroClient(usession)
             stop_event = threading.Event()
-            t = threading.Thread(target=start_pyro_client, args=(client, stop_event, usession), name=f"Usebot #{client.name}")
+            t = threading.Thread(target=start_pyro_client, args=(stop_event, usession), name=f"Usebot #{usession.name}")
             t.start()
-            threads[usession.id] = dict(thread=t, stop_event=stop_event, client=client)
+            threads[usession.id] = dict(thread=t, stop_event=stop_event)
         except Exception as e:
             loguru.logger.error(f"Can't start userbot session {usession.name}. Error: {e}, traceback: {traceback.format_exc()}")
+            
+    logger.info("Starting slots threads...")
+    for slot in all_slots:
+        if slot.status == 'active':
+            for interval in slot.schedule:
+                for posting in slot.postings:
+                    ubot = random.choice(slot.ubots)
+                    ubot_id = ubot.id
+                    stop_event = threading.Event()
+                    job_id = f"{slot.id}_{interval['min']}_{interval['max']}_{posting.id}_{ubot_id}"
+                    t = threading.Thread(target=send_slot_message, args=(slot, list(slot.chats.keys())[0], interval, posting, stop_event, ubot), name=f"Slot #{slot.name} {interval['min']}-{interval['max']} {posting.id}")
+                    slots_jobs[job_id] = dict(thread=t, stop_event=stop_event)
+                    t.start()
+        elif slot.status == 'inactive':
+            for job_key in slots_jobs:
+                if slot.id in job_key:
+                    slots_jobs[job_key]['stop_event'].set()
 
     await on_start_bot()
     await dp.start_polling()

@@ -60,3 +60,4 @@ logger.add("logs/botlog.log", rotation="500 MB", enqueue=True)  # Запись �
 # Global Variables
 threads = {}
 pyrogram_clients = []
+slots_jobs = {}

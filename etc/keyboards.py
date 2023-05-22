@@ -5,6 +5,7 @@ from aiogram.types import \
     KeyboardButton as Button, \
     InlineKeyboardMarkup as IKeyboard, \
     InlineKeyboardButton as IButton
+import pyrogram
 from etc.utils import cutText, remove_html_tags
 
 from models import AutopostSlot, PostingField, UserbotSession
@@ -16,6 +17,15 @@ class Keyboards:
             k = IKeyboard()
             k.row(IButton("🔁 Прислать новый", callback_data=f"|us_auth:send_new_code:{session_name}"))
             return k
+        
+    class Chats:
+        @staticmethod
+        def menu(slot: AutopostSlot, chat: dict):
+            k = IKeyboard()
+            k.row(IButton("🗑️ Удалить из рассылки", callback_data=f"|chats:delete_slot_chat:{slot.id}:{chat['id']}:!"))
+            k.row(IButton("➖➖➖ Скрыть ➖➖➖", callback_data=f"hide"))
+            return k
+        
         
     class USessions:
         @staticmethod
@@ -79,11 +89,11 @@ class Keyboards:
             return k
         
         @staticmethod
-        def chooseUserbots(userbots: List[UserbotSession], selected=[], slot=None):
+        def chooseUserbots(userbots: List[UserbotSession], selected: List[str]=[], slot=None):
             k = IKeyboard()
             any_selected = selected != []
             for ub in userbots:
-                s = "" if ub.id not in selected else "☑️ "
+                s = "☑️ " if ub.id not in selected else "✅ "
                 k.row(IButton(s + f"{ub.name} | {ub.login}", callback_data=f"|choose_ubots:{ub.id}"))
             if any_selected:
                 k.row(IButton("🏁 Завершить", callback_data=f"|choose_ubots:done"))

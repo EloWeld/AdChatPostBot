@@ -10,7 +10,7 @@ from aiogram.dispatcher.filters import Command, ChatTypeFilter
 from aiogram.dispatcher import FSMContext
 from aiogram.types import *
 from models import TgUser, UserbotSession
-from pyroProcessing import start_pyro_client, userbotSessionToPyroClient
+from pyroThreads import start_pyro_client, userbotSessionToPyroClient
 from states import AuthSessionState
 import pyrogram
 from pyrogram.errors import FloodWait, SessionPasswordNeeded, PhoneNumberInvalid, PhoneCodeExpired, PhoneCodeInvalid
