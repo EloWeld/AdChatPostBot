@@ -95,10 +95,10 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
         await state.update_data(suc={})
         
     if actions[0] == "add_chats_with_text":
-        await c.message.edit_text("💬 Введите все CHAT ID чатов которые хотите включить в рассылку, разделяя их <b>\",\"</b>,<b>\";\"</b>,<b>\" \"</b> или переносом строки",
+        await c.message.edit_text("💬 Введите все CHAT ID/JoinLink/Username чатов которые хотите включить в рассылку, разделяя их <b>\",\"</b>,<b>\";\"</b>,<b>\" \"</b> или переносом строки",
                                   reply_markup=Keyboards.back(f"|slot_menu:chats:{slot.id}"))
         await state.update_data(editing_slot_id=slot.id)
-        await ChangeSlotStates.posting_chats.set()
+        await ChangeSlotStates.chats.set()
         
     if actions[0] == "suc":
         slot = AutopostSlot.objects.get({"_id": actions[1]})
@@ -119,7 +119,7 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
         slot.chats.update(suc)
         slot.save()
         await c.message.edit_text("💬 Меню подключённых чатов для рассылки",
-                                  reply_markup=Keyboards.Slots.seeSlotChats(slot))
+                                  reply_markup=Keyboards.SlotChats.seeSlotChats(slot))
 
  
 # Обработчик callback-запросов для работы с выбором юзерботов
@@ -268,7 +268,7 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
     if action == "new":
         await c.answer()
         slot = AutopostSlot(id=str(uuid4())[:15],
-                            owner_id=user.id,
+                            owner_id=user.user_id,
                             name=f"{fake.word().capitalize()}_{fake.word()}",
                             emoji=random.choice(
                                 ["🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "🟤", "⚫", "⚪", "🟠"])
@@ -369,36 +369,3 @@ async def _(message: types.Message, state: FSMContext):
     asyncio.create_task(slot_updated(slot))
 
 
-
-@dp.message_handler(state=ChangeSlotStates.posting_chats)
-async def _(message: types.Message, state: FSMContext):
-    global threads
-    chat_ids = message.text.replace('\n', ' ').replace(';', ' ').replace(',', ' ').replace('  ', ' ').split()
-    stateData = await state.get_data()
-    
-    slot: AutopostSlot = AutopostSlot.objects.raw(
-        {"_id": stateData['editing_slot_id']}).first()
-    counter = 0
-    for chat_id in chat_ids:
-        if chat_id in slot.chats:
-            await message.answer(f"⚠️ Чат <code>{chat_id}</code> был уже добавлен в список чатов" )
-            continue
-        for ubot in slot.ubots:
-            ubot: UserbotSession = ubot
-            client: pyrogram.Client = threads[ubot.id]['client']
-            chat = await client.get_chat(chat_id)
-            if chat is None:
-                await message.answer(f"⚠️ Чат <code>{chat_id}</code> не добавлен у юзербота <code>{ubot.name}</code> | <code>{ubot.login}</code>, чат не добавлен")
-                continue
-            if chat is None:
-                await message.answer(f"⚠️ В чате <code>{chat_id}</code> юзербот <code>{ubot.name}</code> | <code>{ubot.login}</code> не может писать сообщения, чат не добавлен")
-                continue
-            slot.chats[str(chat.id)] = json.loads(json.dumps(chat.__dict__, ensure_ascii=False, default=str))
-            counter += 1
-    await message.answer(f"✅ Добавлено {counter} чатов!")
-    slot.save()
-            
-    await message.answer("💬 Меню подключённых чатов для рассылки",
-                                  reply_markup=Keyboards.Slots.seeSlotChats(slot))
-    await state.finish()
-    await slot_updated(slot)

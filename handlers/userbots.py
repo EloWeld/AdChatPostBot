@@ -30,11 +30,13 @@ async def _(c: CallbackQuery, state: FSMContext):
     user = TgUser.objects.get({'_id': c.from_user.id})
 
     if action == "main":
+        if state:
+            await state.finish()
         sessions = UserbotSession.objects.all()
         await c.message.edit_text("Выберите сессию или добавьте новую", reply_markup=Keyboards.USessions.main(sessions))
     if action == "new":
         await c.answer()
-        await c.message.answer("⚠️ Внимание! Не авторизируйте аккаунт, через который общаетесь с ботом! Телеграм заблокирует разглашение кода для входа из-за чего выполнить вход не удасться!\n\n✏️ Введите название для вашего юзербота:")
+        await c.message.edit_text("⚠️ Внимание! Не авторизируйте аккаунт, через который общаетесь с ботом! Телеграм заблокирует разглашение кода для входа из-за чего выполнить вход не удасться!\n\n✏️ Введите название для вашего юзербота:", reply_markup=Keyboards.USessions.name())
         await AuthSessionState.session_name.set()
     if action == "see":
         us: UserbotSession = UserbotSession.objects.get(
@@ -216,12 +218,10 @@ async def authSession(message: Message, client, state):
     await client.disconnect()
 
     try:
-        client = userbotSessionToPyroClient(us)
         stop_event = threading.Event()
-
-        t = threading.Thread(target=start_pyro_client, args=(client, stop_event, us), name=f"Usebot #{client.name}")
+        t = threading.Thread(target=start_pyro_client, args=(stop_event, us), name=f"Usebot #{client.name}")
         t.start()
-        threads[us.id] = dict(thread=t, stop_event=stop_event, client=client)
+        threads[us.id] = dict(thread=t, stop_event=stop_event)
 
     except Exception as e:
         loguru.logger.error(

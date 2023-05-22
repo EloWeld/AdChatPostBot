@@ -13,10 +13,9 @@ from loguru import logger
 from etc.utils import sendMessageFromBotSync, userbotSessionToPyroClient
 from models import AutopostSlot
 import pyrogram
-import aiocron
 from loader import slots_jobs, threads
 
-async def d(ubot, slot: AutopostSlot, chat, posting, interval, stop_event: threading.Event()):
+async def d(slot: AutopostSlot, chat_id, interval, stop_event: threading.Event(), ubot):
     client = userbotSessionToPyroClient(ubot)
     while not stop_event.is_set():
         cmin = datetime.datetime(datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day, int(interval['min'].split(':')[0]), int(interval['min'].split(':')[1]), 0)
@@ -31,19 +30,23 @@ async def d(ubot, slot: AutopostSlot, chat, posting, interval, stop_event: threa
             print(f"In interval, w8time - {w8time}")
             time.sleep(w8time)
         else:
-            print("Skipping interval, wait for hour")
-            time.sleep(3600)
+            # w8time = int((cmin - datetime.datetime.now()).seconds * 0.9)
+            # print(f"Skipping interval, wait for {w8time}")
+            time.sleep(60)
+            w8time = int((cmin - datetime.datetime.now()).seconds * 0.9)
             continue
         try:
             async with client as c:
-                await c.send_message(int(chat), posting.text)
+                await c.send_message(int(chat_id), random.choice(slot.postings).text)
                 print('Message sent')
+                w8time = int((cmin - datetime.datetime.now()).seconds * 0.9)
+                time.sleep(w8time)
         except Exception as e:
             sendMessageFromBotSync(slot.reports_group_id, f"⚠️ Юзербот <b>{ubot.name}</b> в слоте <code>{slot.name}</code> не смог отправить сообщение в интервал <code>{interval['min']}-{interval['max']}</code>!\n\nОшибка: <b>{e} ➖ {traceback.format_exc()}</b>")
         time.sleep(60)
 
-def send_slot_message(slot, chat, interval, posting, stop_event, ubot):
-    asyncio.run(d(ubot, slot, chat, posting, interval, stop_event))
+def send_slot_message(slot, chat_id, interval, stop_event, ubot):
+    asyncio.run(d(slot, chat_id, interval, stop_event, ubot))
 
 
 async def slot_updated(slot: AutopostSlot):
@@ -54,11 +57,11 @@ async def slot_updated(slot: AutopostSlot):
             slots_jobs[job_key]['stop_event'].set()
             
     for interval in slot.schedule:
-        for posting in slot.postings:
+        for chat_id in slot.chats:
             ubot = random.choice(slot.ubots)
             ubot_id = ubot.id
             stop_event = threading.Event()
-            job_id = f"{slot.id}_{interval['min']}_{interval['max']}_{posting.id}_{ubot_id}"
-            t = threading.Thread(target=send_slot_message, args=(slot, list(slot.chats.keys())[0], interval, posting, stop_event, ubot), name=f"Slot #{slot.name} {interval['min']}-{interval['max']} {posting.id}")
+            job_id = f"{slot.id}_{interval['min']}_{interval['max']}_{chat_id}_{ubot_id}"
+            t = threading.Thread(target=send_slot_message, args=(slot, chat_id, interval, stop_event, ubot), name=f"Slot #{slot.name} {interval['min']}-{interval['max']} {chat_id}")
             slots_jobs[job_id] = dict(thread=t, stop_event=stop_event)
             t.start()

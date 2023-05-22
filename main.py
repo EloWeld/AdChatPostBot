@@ -2,7 +2,6 @@ import asyncio
 from functools import partial
 import threading
 from typing import List
-import aiocron
 from loguru import logger
 from loader import dp, threads, bot, MDB, slots_jobs
 from handlers import *
@@ -38,14 +37,15 @@ async def main_async():
     for slot in all_slots:
         if slot.status == 'active':
             for interval in slot.schedule:
-                for posting in slot.postings:
+                for chat_id in slot.chats:
                     ubot = random.choice(slot.ubots)
                     ubot_id = ubot.id
                     stop_event = threading.Event()
-                    job_id = f"{slot.id}_{interval['min']}_{interval['max']}_{posting.id}_{ubot_id}"
-                    t = threading.Thread(target=send_slot_message, args=(slot, list(slot.chats.keys())[0], interval, posting, stop_event, ubot), name=f"Slot #{slot.name} {interval['min']}-{interval['max']} {posting.id}")
+                    job_id = f"{slot.id}_{interval['min']}_{interval['max']}_{chat_id}_{ubot_id}"
+                    t = threading.Thread(target=send_slot_message, args=(slot, chat_id, interval, stop_event, ubot), name=f"Slot #{slot.name} {interval['min']}-{interval['max']} {chat_id}")
                     slots_jobs[job_id] = dict(thread=t, stop_event=stop_event)
                     t.start()
+                    
         elif slot.status == 'inactive':
             for job_key in slots_jobs:
                 if slot.id in job_key:

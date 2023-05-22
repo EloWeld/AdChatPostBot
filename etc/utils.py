@@ -11,7 +11,7 @@ async def notify_admins(text: str):
     
     for admin in admins:
         try:
-            await bot.send_message(admin.id, text)
+            await bot.send_message(admin.user_id, text)
         except Exception as e:
             logger.error(f"Can't send message to admin: {e}")
             

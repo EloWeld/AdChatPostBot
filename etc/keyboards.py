@@ -16,7 +16,8 @@ class Keyboards:
         def sendNewCode(session_name):
             k = IKeyboard()
             k.row(IButton("🔁 Прислать новый", callback_data=f"|us_auth:send_new_code:{session_name}"))
-            return k
+            return k @staticmethod
+        
         
     class Chats:
         @staticmethod
@@ -35,6 +36,11 @@ class Keyboards:
                 k.row(IButton(session.name, callback_data=f"|usessions:see:{session.id}"))
             k.row(IButton("➕ Добавить", callback_data=f"|usessions:new"))
             k.row(IButton("‹ Назад", callback_data=f"|main"))
+            return k
+        
+        def name():
+            k = IKeyboard()
+            k.row(IButton("‹ Назад", callback_data=f"|usessions:main"))
             return k
         
         @staticmethod
