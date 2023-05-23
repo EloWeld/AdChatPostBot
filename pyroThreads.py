@@ -25,8 +25,11 @@ def start_pyro_client(stop_event: threading.Event(), usession: UserbotSession):
 
 
         @client.on_message()
-        async def handle_messages(client: pyrogram.Client, message: pyrogram.types.Message):
-            pass
+        async def handle_messages(c: pyrogram.Client, message: pyrogram.types.Message):
+            if str(message.chat.id) not in usession.chats:
+                n_chat = await c.get_chat(message.chat.id)
+                usession.chats[str(message.chat.id)] = json.loads(json.dumps(n_chat.__dict__, ensure_ascii=False, default=str))
+                usession.save()
             
         #Start the client
         try:
@@ -41,7 +44,7 @@ def start_pyro_client(stop_event: threading.Event(), usession: UserbotSession):
                 usession.chats[str(chat_id)] = json.loads(json.dumps(chat.__dict__, ensure_ascii=False, default=str))
             usession.save()
             while not stop_event.is_set():
-                await asyncio.sleep(10)  # Adjust sleep time as needed
+                await asyncio.sleep(2)  # Adjust sleep time as needed
                 
 
             await client.stop()

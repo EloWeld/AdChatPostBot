@@ -21,7 +21,8 @@ async def sendUb(msg: Message, ubot: UserbotSession, edit=False):
     maybe_dead_text = "\n\n⚠️ Возможно требуется переавторизация!" if ubot.is_dead else ""
     await func(f"Юзербот <code>{ubot.name}</code>\n"
                f"Номер телефона: <code>{ubot.login}</code>\n\n"
-               f"Строка авторизации: <code>{ubot.string_session}</code>" + maybe_dead_text, reply_markup=Keyboards.USessions.showUSession(ubot))
+               f"Строка авторизации: <code>{ubot.string_session}</code>" + maybe_dead_text, 
+               reply_markup=Keyboards.USessions.showUSession(ubot))
 
 
 @dp.callback_query_handler(text_contains="|usessions", state="*")
@@ -43,6 +44,15 @@ async def _(c: CallbackQuery, state: FSMContext):
             {'_id': c.data.split(":")[2]})
         await sendUb(c.message, us, True)
         await c.answer()
+    if action == "change_name":
+        await c.answer()
+        us: UserbotSession = UserbotSession.objects.get(
+            {'_id': c.data.split(":")[2]})
+        await c.message.edit_text("✏️ Введите новое название для юзербота", 
+                               reply_markup=Keyboards.back(f"|usessions:see:{us.id}"))
+        await state.update_data(editing_us_id=us.id)
+        await AuthSessionState.change_name.set()
+        
     if action == "reauthorize":
         await c.answer()
         us: UserbotSession = UserbotSession.objects.get(
@@ -117,6 +127,20 @@ async def session_name_handler(message: types.Message, state: FSMContext):
     await state.update_data(session_name=session_name)
     await message.answer("✏️ Введите номер телефона для сессии:")
     await AuthSessionState.login.set()
+
+
+@dp.message_handler(state=AuthSessionState.change_name)
+async def session_name_handler(message: types.Message, state: FSMContext):
+    """
+    Обработчик ввода имени сессии. Переименовывет бота
+    """
+    name = message.text[:25]
+    us: UserbotSession = UserbotSession.objects.get(
+            {'_id': (await state.get_data())['editing_us_id']})
+    us.name = name
+    us.save()
+    await state.finish()
+    await sendUb(message, us, False)
 
 
 @dp.message_handler(state=AuthSessionState.login)

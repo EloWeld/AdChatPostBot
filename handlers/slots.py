@@ -32,7 +32,8 @@ async def sendSlot(msg: Message, slot: AutopostSlot, edit=False):
                f"▫️ Юзерботов подключено: <code>{len(slot.ubots)}</code> шт.\n"
                f"▫️ Чатов добавлено: <code>{len(slot.chats)}</code> шт.\n"
                f"▫️ Сообщений для рассылки: <code>{len(slot.postings)}</code> шт.\n"
-               f"▫️ Статус работы: <code>{slot.get_verbose_status()}</code>\n\n"
+               f"▫️ Статус работы: <code>{slot.get_verbose_status()}</code>\n"
+               f"▫️ Чат для отчётов: <code>{slot.reports_group_id if slot.reports_group_id else '❌ Не задан'}</code>\n\n"
                f"<b>📆 Расписание:</b>\n"
                f"{schdeule_text}\n\n"
                f"<b>💌 Контент рассылки:</b>\n"
@@ -60,27 +61,16 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
     if actions[0] == "see_chat":
         await c.answer("Отправляю чат")
         chat_id = int(actions[2])
-        chat = slot.chats[str(chat_id)]
-        photopath = f"chat_photos/{chat_id}.jpg"
-        contains_photo = True
-
-        if not os.path.exists(photopath):
-            client: pyrogram.Client = threads[slot.ubots[0].id]['client']
-            async with client:
-                contains_photo = await download_chat_photo(client, chat_id, photopath)
+        chat: dict = slot.chats[str(chat_id)]
 
         msg_text = f"💬 Чат <b>{chat['title']}</b>\n" \
                    f"🔗 Ссылка: <b>{'@'+chat['username'] if chat['username'] else 'Отсутствует'}</b>\n" \
                    f"🪪 ID: <code>{chat['id']}</code>\n" \
                    f"📃 Описание: <code>{chat['bio'] if chat['bio'] else 'Отсутствует'}</code>\n" \
-                   f"👥 Участников: <code>{chat['members_count']}</code>\n" \
+                   f"👥 Участников: <code>{chat['members_count'] if chat['members_count'] else 'Данные отсутствуют'}</code>\n" \
                    f"🗯️ Отправлено реклам в чат: <code>{chat.get('sent_count', 0)}</code>\n"
 
-        if contains_photo:
-            await c.message.answer_photo(InputFile(photopath), caption=msg_text,
-                                         reply_markup=Keyboards.Chats.menu(slot, chat))
-        else:
-            await c.message.answer(msg_text, reply_markup=Keyboards.Chats.menu(slot, chat))
+        await c.message.edit_text(msg_text, reply_markup=Keyboards.Chats.menu(slot, chat))
 
     
     if actions[0] == "add_chat_from_ubot":
@@ -197,11 +187,18 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
         await ChangeSlotStates.schedule.set()
         
     if actions[0] == "chats":
+        slot = AutopostSlot.objects.get({"_id": actions[1]})
+        start = int(actions[-1]) if actions[-1].isdigit() else 0
+        if start < 0:
+            await c.answer('Вы уже в начале списка')
+            return
+        if start >= len(slot.chats):
+            await c.answer('Вы уже в конце списка')
+            return
         if state:
             await state.finish()
-        slot = AutopostSlot.objects.get({"_id": actions[1]})
         await c.message.edit_text("💬 Меню подключённых чатов для рассылки",
-                                  reply_markup=Keyboards.SlotChats.seeSlotChats(slot))
+                                  reply_markup=Keyboards.SlotChats.seeSlotChats(slot, start))
         
     if actions[0] == "postings":
         slot = AutopostSlot.objects.get({"_id": actions[1]})

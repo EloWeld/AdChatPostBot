@@ -24,7 +24,7 @@ class Keyboards:
         def menu(slot: AutopostSlot, chat: dict):
             k = IKeyboard()
             k.row(IButton("🗑️ Удалить из рассылки", callback_data=f"|chats:delete_slot_chat:{slot.id}:{chat['id']}:!"))
-            k.row(IButton("➖➖➖ Скрыть ➖➖➖", callback_data=f"hide"))
+            k.row(IButton("‹ Назад", callback_data=f"|slot_menu:chats:{slot.id}"))
             return k
         
         
@@ -47,6 +47,7 @@ class Keyboards:
         def showUSession(usession: UserbotSession):
             k = IKeyboard()
             k.row(IButton("♻️ Переавторизовать", callback_data=f"|usessions:reauthorize:{usession.id}"))
+            k.row(IButton("🏷️ Переименовать", callback_data=f"|usessions:change_name:{usession.id}"))
             k.row(IButton("🗑️ Удалить", callback_data=f"|usessions:delete_popup:{usession.id}"))
             k.row(IButton("‹ Назад", callback_data=f"|usessions:main"))
             return k
@@ -73,11 +74,13 @@ class Keyboards:
             return k
         
         @staticmethod
-        def seeSlotChats(slot: AutopostSlot):
+        def seeSlotChats(slot: AutopostSlot, start=0):
             k = IKeyboard()
-            for chat_id, chat in slot.chats.items():
+            for chat_id, chat in list(slot.chats.items())[start:start+8]:
                 k.row(IButton(f"💬 {chat['title']} | {chat_id}", callback_data=f"|slot_chats:see_chat:{slot.id}:{chat_id}"))
-                
+            if len(slot.chats) > 8:
+                k.row(IButton("⬅️", callback_data=f"|slot_menu:chats:{slot.id}:{start - 8}"))
+                k.insert(IButton("➡️" + ('' if len(slot.chats) < 8*2 else f"{len(slot.chats-start) // 8}"), callback_data=f"|slot_menu:chats:{slot.id}:{start + 8}"))
             k.row(IButton("➕ Добавить из юзербота", callback_data=f"|slot_chats:add_chat_from_ubot:{slot.id}"))
             k.row(IButton("➕ Добавить списком ChatID", callback_data=f"|slot_chats:add_chats_with_text:{slot.id}"))
             k.row(IButton("‹ Назад", callback_data=f"|slots:see:{slot.id}"))

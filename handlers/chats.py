@@ -59,7 +59,11 @@ async def _(message: types.Message, state: FSMContext):
                 client: pyrogram.Client = userbotSessionToPyroClient(ubot)
                 
                 await client.start()
-                chat = await client.get_chat(chat_identifier)
+                try:
+                    chat = await client.get_chat(chat_identifier)
+                except Exception as e:
+                    loguru.logger.error(e)
+                    chat = None
                 if chat is None or isinstance(chat, pyrogram.types.ChatPreview):
                     # If chat is None - try to join
                     try:

@@ -5,6 +5,7 @@ class AuthSessionState(StatesGroup):
     login = State()
     code = State()
     password = State()
+    change_name = State()
     
 class ChangeSlotStates(StatesGroup):
     name = State()
