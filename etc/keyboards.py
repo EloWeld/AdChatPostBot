@@ -127,12 +127,12 @@ class Keyboards:
         def editSlot(slot: AutopostSlot):
             k = IKeyboard()
            
-            k.row(IButton("[❌›✅] Включить слот" if slot.status=='inactive' else "[✅›❌] Вылючить слот", callback_data=f"|slot_menu:turn:{slot.id}"))
+            k.row(IButton("[❌›✅] Включить слот" if slot.status=='inactive' else "[✅›❌] Выключить слот", callback_data=f"|slot_menu:turn:{slot.id}"))
             key = "name"
             k.row(IButton("🏷️ Изменить название", callback_data=f"|slot_menu:change:{key}:{slot.id}"))
             key = "logs"
             k.insert(IButton("🪵 Изменить чат для логов", callback_data=f"|slot_menu:change:{key}:{slot.id}"))
-            k.row(IButton("💬 Чаты для расслыки", callback_data=f"|slot_menu:chats:{slot.id}"))
+            k.row(IButton("💬 Чаты для рассылки", callback_data=f"|slot_menu:chats:{slot.id}"))
             k.insert(IButton("💌 Контент рассылки", callback_data=f"|slot_menu:postings:{slot.id}:main"))
             k.row(IButton("🤖 Подключенные юзерботы", callback_data=f"|slot_menu:ubots:{slot.id}"))
             k.row(IButton("📆 Расписание", callback_data=f"|slot_menu:schedule:{slot.id}"))

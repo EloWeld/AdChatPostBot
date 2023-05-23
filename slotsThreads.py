@@ -51,7 +51,7 @@ async def send_interval_message(slot: AutopostSlot, chat_id, ubot: UserbotSessio
             slot.save()
             
     except Exception as e:
-        sendMessageFromBotSync(slot.reports_group_id, f"⚠️ Юзербот <b>{ubot.name}</b> в слоте <code>{slot.name}</code> не смог отправить сообщение в интервал <code>{interval['min']}-{interval['max']}</code>!\n\nОшибка: <b>{e} ➖ {traceback.format_exc()}</b>")
+        sendMessageFromBotSync(slot.reports_group_id, f"⚠️ Юзербот <b>{ubot.name}</b> в слоте <code>{slot.name}</code>, группа {slot.chats[chat_id]['title']} ({chat_id}). Не смог отправить сообщение в интервал <code>{interval['min']}-{interval['max']}</code>!\n\nОшибка: <b>{e}</b>") #  ➖ {traceback.format_exc()}
             
             
 async def start_slots_jobs(slot: AutopostSlot):

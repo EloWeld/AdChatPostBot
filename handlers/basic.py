@@ -49,7 +49,6 @@ async def start_command(message: types.Message, state: FSMContext=None):
     await bot.set_my_commands([])
     await bot.set_my_commands([
         BotCommand("start", "Презапуск бота"),
-        BotCommand("stats", "Статистика"),
         BotCommand("help", "Помощь")
     ], scope=BotCommandScopeAllPrivateChats())
 
@@ -57,25 +56,7 @@ async def start_command(message: types.Message, state: FSMContext=None):
 # Get statistics
 @dp.message_handler(commands=["stats"], chat_type=ChatType.PRIVATE)
 async def get_stats(message: types.Message):
-    chat_id = message.chat.id
-
-    groups: List[AutopostSlot] = AutopostSlot.objects.all()
-    sender_groups = {}
-    fwded_messages_count = 0
-    for gr in groups:
-        for fwd in gr.forwarded_msgs:
-            if fwd['from_chat'] not in sender_groups:
-                sender_groups[fwd['from_chat']] = dict(title=fwd['from_chat_title'], id=fwd['from_chat'], msgs=[])
-                
-            sender_groups[fwd['from_chat']]['msgs'] += [fwd]
-            fwded_messages_count += 1
-            
-    stats_text = ""
-    for x in sender_groups:
-        stats_text += f"Из группы <a href='https://t.me/c/{str(x).replace('-100','').replace('-','')}'>{sender_groups[x]['title']}</a> переслано {len(sender_groups[x]['msgs'])} сообщений\n"
-    
-    await message.reply(f"Статистика: Переслано {fwded_messages_count:,} сообщений.\n\n" + stats_text)
-
+    pass
 # Get help
 
 
@@ -85,9 +66,6 @@ async def help_command(message: types.Message):
 Команды для управления ботом:
 
 /start - Перезапуск бота
-/stats - Получить статистику
-/auth_ub - Добавить юзербота
-/ping - Проверить работает ли бот
 /help - Отобразить эту справочную информацию
 """
 

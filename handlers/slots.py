@@ -9,7 +9,7 @@ import aiogram
 import loguru
 import pyrogram
 from etc.keyboards import Keyboards
-from etc.utils import check_html_tags, download_chat_photo
+from etc.utils import check_html_tags, download_chat_photo, userbotSessionToPyroClient
 from loader import *
 from aiogram.dispatcher.filters import Command
 from aiogram.dispatcher import FSMContext
@@ -81,6 +81,22 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
     if actions[0] == "select_ubot_chats":
         slot = AutopostSlot.objects.get({"_id": actions[1]})
         ubot = UserbotSession.objects.get({"_id": actions[2]})
+        client = userbotSessionToPyroClient(ubot)
+        await c.answer('ℹ️ Загружаю чаты... Это может занять время')
+        try:
+            await client.start()
+            dialogs = client.get_dialogs()
+            async for dialog in dialogs:
+                dialog: pyrogram.types.Dialog = dialog
+                chat: Chat = dialog.chat
+                chat_id = chat.id
+                if chat.type not in [pyrogram.enums.ChatType.GROUP, pyrogram.enums.ChatType.SUPERGROUP]:
+                    continue
+                ubot.chats[str(chat_id)] = json.loads(json.dumps(chat.__dict__, ensure_ascii=False, default=str))
+            ubot.save()
+        except pyrogram.errors.exceptions.unauthorized_401.AuthKeyUnregistered:
+            await c.message.answer('ℹ️ Пожалуйста, переавторизируйте юзербота, не удаётся получить список чатов')
+            return
         await c.message.edit_text("💬 Выберите чаты для добавления", reply_markup=Keyboards.SlotChats.chooseChatsFromUbot(slot, ubot, {}))
         await state.update_data(suc={})
         
@@ -98,7 +114,7 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
         if str(chat['id']) not in suc:
             suc[str(chat['id'])] = chat
         else:
-            del suc[chat['id']]
+            del suc[str(chat['id'])]
         #slot.chats[chat['id']] = chat
         await state.update_data(suc=suc)
         await c.message.edit_text("💬 Выберите чаты для добавления", reply_markup=Keyboards.SlotChats.chooseChatsFromUbot(slot, ubot, suc))
@@ -192,7 +208,7 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
         if start < 0:
             await c.answer('Вы уже в начале списка')
             return
-        if start >= len(slot.chats):
+        if start > len(slot.chats):
             await c.answer('Вы уже в конце списка')
             return
         if state:
@@ -350,12 +366,21 @@ async def _(message: types.Message, state: FSMContext):
 @dp.message_handler(state=ChangeSlotStates.schedule)
 async def _(message: types.Message, state: FSMContext):
     val = message.text
+    
+    schedule = [dict(min=x.split('-')[0], max=x.split('-')[1]) for x in val.replace(';', ' ').replace('  ', ' ').strip().split()]
+    for x in schedule:
+        if 0 <= int(x['min'].split(':')[0]) <= 24 and 0 <= int(x['max'].split(':')[0]) <= 24 and 0 <= int(x['min'].split(':')[1]) <= 60 and 0 <= int(x['max'].split(':')[1]) <= 60:
+            pass
+        else:
+            await message.answer(f"❌ Недопустимое время в интервале: <code>{x['min']}-{x['max']}</code>. Введите интервалы заново")
+            return
+    
     stateData = await state.get_data()
     
     slot: AutopostSlot = AutopostSlot.objects.raw(
         {"_id": stateData['editing_slot_id']}).first()
     
-    slot.schedule = [dict(min=x.split('-')[0], max=x.split('-')[1]) for x in val.replace(';', ' ').replace('  ', ' ').strip().split()]
+    slot.schedule = schedule
     slot.save()
 
     await stateData['xm'].edit_text(f"✅ Расписание изменено на <code>{val}</code>!")
