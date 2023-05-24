@@ -56,6 +56,14 @@ def start_pyro_client(stop_event: threading.Event(), usession: UserbotSession):
 
             usession.is_dead = True
             usession.save()
+        except pyrogram.errors.exceptions.not_acceptable_406.AuthKeyDuplicated:
+            slots: List[AutopostSlot] = AutopostSlot.objects.all()
+            for slot in slots:
+                if usession.id in slot.ubots:
+                    sendMessageFromBotSync(slot.reports_group_id, f"⚠️ Привязанный к этой слоту #{slot.id} юзербот <b>{usession.name}</b> с телефоном <code>{usession.login}</code> авторизирован в двух местах одновременно! Замените юзербота или переавторизуйте его")
+
+            usession.is_dead = True
+            usession.save()
         except Exception as e:
             loguru.logger.error(f"Can't start userbot client, error: {e} {type(e)} {traceback.format_exc()}")
                 
