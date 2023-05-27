@@ -135,7 +135,9 @@ class Keyboards:
             k.row(IButton("💬 Чаты для рассылки", callback_data=f"|slot_menu:chats:{slot.id}"))
             k.insert(IButton("💌 Контент рассылки", callback_data=f"|slot_menu:postings:{slot.id}:main"))
             k.row(IButton("🤖 Подключенные юзерботы", callback_data=f"|slot_menu:ubots:{slot.id}"))
-            k.row(IButton("📆 Расписание", callback_data=f"|slot_menu:schedule:{slot.id}"))
+            
+            k.row(IButton("📆 Дата рассылки", callback_data=f"|slot_menu:date_schedule:{slot.id}"))
+            k.insert(IButton("⏲️ Время рассылки", callback_data=f"|slot_menu:schedule:{slot.id}"))
            
             k.row(IButton("🗑️ Удалить слот", callback_data=f"|slot_menu:delete_slot:{slot.id}"))
             k.insert(IButton("‹ Назад", callback_data=f"|slots:main"))
@@ -146,7 +148,7 @@ class Keyboards:
             k = IKeyboard()
             for posting in slot.postings:
                 posting: PostingField = posting
-                k.row(IButton(f"📃 {posting.id} | {cutText(remove_html_tags(posting.text), 25)}", callback_data=f"|slot_menu:postings:{slot.id}:{posting.id}:see_message"))
+                k.row(IButton(f"📃 {posting.id} | {cutText(posting.name, 15)}", callback_data=f"|slot_menu:postings:{slot.id}:{posting.id}:see_message"))
                 k.insert(IButton(f"🗑️", callback_data=f"|slot_menu:postings:{slot.id}:{posting.id}:del_message"))
             if len(slot.postings) > 2:
                 k.row(IButton("📃 Вывести все", callback_data=f"|slot_menu:postings:{slot.id}:preview_messages"))

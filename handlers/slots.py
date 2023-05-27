@@ -17,15 +17,17 @@ from aiogram.types import *
 from models import AutopostSlot, TgUser, UserbotSession
 from slotsThreads import slot_updated
 from states import ChangeSlotStates
-
+import datetime
+from etc.utils import cutText, remove_html_tags
 
 # Функция для отправки информации о слоте
 async def sendSlot(msg: Message, slot: AutopostSlot, edit=False):
     func = msg.answer if not edit else msg.edit_text
 
     schdeule_text = "❌ Не установлено" if len(slot.schedule) == 0 else '\n'.join(f"▫️ <code>{x['min']}-{x['max']}</code>" for x in slot.schedule)
-    postings_text = "❌ Не установлено" if len(slot.postings) == 0 else '\n'.join(f"▫️ Сообщение #{i}: отправлено <code>{x.sent_count}</code> раз" for i, x in enumerate(slot.postings))
+    postings_text = "❌ Не установлено" if len(slot.postings) == 0 else '\n'.join(f"▫️ {x.name if x.name else cutText(remove_html_tags(x.text), 10)}: отправлено <code>{x.sent_count}</code> раз" for i, x in enumerate(slot.postings))
     chats_text = "❌ Нет чатов" if len(slot.chats) == 0 else f"▫️ Подключено {len(slot.chats)} чатов, отправлено <code>{sum([x['sent_count'] if 'sent_count' in x else 0 for x in slot.chats.values()])}</code> сообщений"
+    date_schedule_text = "❌ Даты рассылки не выбраны\n" if len(slot.date_schedule) == 0 else '▫️ ' + ', '.join(f"<code>{x['min'].strftime('%d.%m.%Y')}-{x['max'].strftime('%d.%m.%Y')}</code>" for x in slot.date_schedule) + "\n"
 
     await func(f"{slot.emoji} Слот <b>{slot.name}</b> <code>#{slot.id}</code>\n\n"
                f"<b>📝 Информация:</b>\n"
@@ -35,7 +37,7 @@ async def sendSlot(msg: Message, slot: AutopostSlot, edit=False):
                f"▫️ Статус работы: <code>{slot.get_verbose_status()}</code>\n"
                f"▫️ Чат для отчётов: <code>{slot.reports_group_id if slot.reports_group_id else '❌ Не задан'}</code>\n\n"
                f"<b>📆 Расписание:</b>\n"
-               f"{schdeule_text}\n\n"
+               f"{date_schedule_text}{schdeule_text}\n\n"
                f"<b>💌 Контент рассылки:</b>\n"
                f"{postings_text}\n\n"
                f"<b>💬 Чаты:</b>\n"
@@ -202,6 +204,13 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
         await state.update_data(editing_slot_id=slot.id, xm=xm)
         await ChangeSlotStates.schedule.set()
         
+    if actions[0] == "date_schedule":
+        slot = AutopostSlot.objects.get({"_id": actions[1]})
+        xm = await c.message.edit_text("Введите даты(от и до включительно) по которым будет осуществлятся рассылка с разделением через <b>\";\"</b> или <b>\" \"</b>\n\nПример: <code>10.06.2023-20.06.2023 22.06.2023-30.06.2023</code>",
+                                  reply_markup=Keyboards.back(f"|slots:see:{slot.id}"))
+        await state.update_data(editing_slot_id=slot.id, xm=xm)
+        await ChangeSlotStates.date_schedule.set()
+        
     if actions[0] == "chats":
         slot = AutopostSlot.objects.get({"_id": actions[1]})
         start = int(actions[-1]) if actions[-1].isdigit() else 0
@@ -233,7 +242,8 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
             await ChangeSlotStates.postings.set()
         if actions[-1] == "see_message":
             message_id = actions[-2]
-            await c.message.answer([x for x in slot.postings if x.id == message_id][0].text, Keyboards.hide())
+            posting = [x for x in slot.postings if x.id == message_id][0]
+            await c.message.answer(f"ID: <code>{posting.id}</code>\nНазвание: <code>{posting.name if posting.name else 'Нет'}</code>\n\nТекст: {posting.text}", reply_markup=Keyboards.hide())
         if actions[-1] == "del_message":
             message_id = actions[-2]
             slot.postings = [x for x in slot.postings if x.id != message_id]
@@ -350,7 +360,7 @@ async def _(message: types.Message, state: FSMContext):
         await message.answer("❗ Внимание! Нарушены теги в тексте. Ни одно сообщение не было добавлено", reply_markup=Keyboards.back(f"|slot_menu:postings:{slot.id}:main"))
         return
     last_id = int(slot.postings[-1].id) if slot.postings else -1
-    messages_for_adding = [dict(id=str(i + last_id + 1), text=msg_text, sent_count=0) for i, msg_text in enumerate(val.split('#####'))]
+    messages_for_adding = [dict(id=str(i + last_id + 1), name=msg_text.split("%%%")[0].strip(), text=msg_text.split("%%%")[-1].strip(), sent_count=0) for i, msg_text in enumerate(val.split('#####'))]
     slot.postings = slot.postings + messages_for_adding
     slot.postings = slot.postings[:Consts.MAX_POSTINGS_IN_SLOT]
     slot.save()
@@ -384,6 +394,33 @@ async def _(message: types.Message, state: FSMContext):
     slot.save()
 
     await stateData['xm'].edit_text(f"✅ Расписание изменено на <code>{val}</code>!")
+    await message.delete()
+
+    await sendSlot(message, slot)
+    await state.finish()
+    asyncio.create_task(slot_updated(slot))
+
+
+@dp.message_handler(state=ChangeSlotStates.date_schedule)
+async def _(message: types.Message, state: FSMContext):
+    val = message.text
+    
+    try:
+        schedule = [dict(min=datetime.datetime.strptime(x.split('-')[0], "%d.%m.%Y"), 
+                        max=datetime.datetime.strptime(x.split('-')[1], "%d.%m.%Y")) for x in val.replace(';', ' ').replace('  ', ' ').strip().split()]
+    except Exception as e:
+        loguru.logger.error(f"Error on formating date: {e}")
+        await message.answer(f"❌ Недопустимая дата. Введите заново")
+        return
+    
+    stateData = await state.get_data()
+    
+    slot: AutopostSlot = AutopostSlot.objects.raw({"_id": stateData['editing_slot_id']}).first()
+    
+    slot.date_schedule = schedule
+    slot.save()
+
+    await stateData['xm'].edit_text(f"✅ Расписание дат изменено на <code>{val}</code>!")
     await message.delete()
 
     await sendSlot(message, slot)

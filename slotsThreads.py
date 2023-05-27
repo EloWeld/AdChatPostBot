@@ -31,12 +31,23 @@ def send_interval(slot, chat_id, ubot, interval):
 
 
 async def send_interval_message(slot: AutopostSlot, chat_id, ubot: UserbotSession, interval: dict):
+    
     client = userbotSessionToPyroClient(ubot)
     cmin = datetime.datetime(datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day, int(interval['min'].split(':')[0]), int(interval['min'].split(':')[1]), 0)
     cmax = datetime.datetime(datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day, int(interval['max'].split(':')[0]), int(interval['max'].split(':')[1]), 59)
     w8 = random.randint(0, (cmax - datetime.datetime.now()).seconds)
     posting = random.choice(slot.postings)
     await asyncio.sleep(w8)
+    
+    
+    if slot.date_schedule is not None:
+        for date_interval in slot.date_schedule:
+            if date_interval['min'] <= datetime.datetime.now() <= date_interval['max']:
+                pass
+            else:
+                loguru.logger.info(f"It' ok! Sent interrupted by date interval {date_interval}")
+                return
+    
     try:
         async with client as c:
             await c.send_message(int(chat_id), posting.text)

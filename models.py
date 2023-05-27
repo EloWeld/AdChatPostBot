@@ -34,6 +34,7 @@ class UserbotSession(MongoModel):
 
 class PostingField(MongoModel):
     id = fields.CharField()
+    name = fields.CharField(blank=True, default="Сообщ.")
     text = fields.CharField()
     sent_count = fields.IntegerField(default=0)
 
@@ -53,6 +54,7 @@ class AutopostSlot(MongoModel):
     postings = fields.ListField(fields.EmbeddedDocumentField(PostingField), blank=True)
     chats = fields.DictField(blank=True)
     schedule = fields.ListField(fields.DictField(), blank=True)
+    date_schedule = fields.ListField(fields.DictField(), blank=True)
     reports_group_id = fields.BigIntegerField()
     
     def get_verbose_status(self):

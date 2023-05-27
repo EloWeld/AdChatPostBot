@@ -13,3 +13,4 @@ class ChangeSlotStates(StatesGroup):
     postings = State()
     logsChat = State()
     chats = State()
+    date_schedule = State()
