@@ -360,7 +360,9 @@ async def _(message: types.Message, state: FSMContext):
         await message.answer("❗ Внимание! Нарушены теги в тексте. Ни одно сообщение не было добавлено", reply_markup=Keyboards.back(f"|slot_menu:postings:{slot.id}:main"))
         return
     last_id = int(slot.postings[-1].id) if slot.postings else -1
-    messages_for_adding = [dict(id=str(i + last_id + 1), name=msg_text.split("%%%")[0].strip(), text=msg_text.split("%%%")[-1].strip(), sent_count=0) for i, msg_text in enumerate(val.split('#####'))]
+    messages_for_adding = [dict(id=str(i + last_id + 1), 
+                                name=msg_text.split("%%%")[0].strip() if "%%%" in msg_text else cutText(remove_html_tags(msg_text), 10), 
+                                text=msg_text.split("%%%")[-1].strip(), sent_count=0) for i, msg_text in enumerate(val.split('#####'))]
     slot.postings = slot.postings + messages_for_adding
     slot.postings = slot.postings[:Consts.MAX_POSTINGS_IN_SLOT]
     slot.save()
