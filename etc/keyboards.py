@@ -79,8 +79,20 @@ class Keyboards:
             for chat_id, chat in list(slot.chats.items())[start:start+8]:
                 k.row(IButton(f"💬 {chat['title']} | {chat_id}", callback_data=f"|slot_chats:see_chat:{slot.id}:{chat_id}"))
             if len(slot.chats) > 8:
-                k.row(IButton("⬅️", callback_data=f"|slot_menu:chats:{slot.id}:{start - 8}"))
-                k.insert(IButton("➡️" + ('' if len(slot.chats) < 8*2 else f"{(len(slot.chats) - start) // 8}"), callback_data=f"|slot_menu:chats:{slot.id}:{start + 8}"))
+                remaining_pages_start = start // 8
+                remaining_pages_end = (len(slot.chats) - start - 8) if (len(slot.chats) - start - 8) >= 0 else 0
+
+                k.row(
+                    IButton("⬅️" + ('' if remaining_pages_start < 1 else f" {remaining_pages_start}"), callback_data=f"|slot_menu:chats:{slot.id}:{start - 8}")
+                    if start - 8 >= 0 else
+                    IButton("⬅️", callback_data=f"|slot_menu:chats:{slot.id}:0")
+                )
+
+                k.insert(IButton(
+                    "➡️" + ('' if remaining_pages_end < 1 else f" {remaining_pages_end // 8+1}"),
+                    callback_data=f"|slot_menu:chats:{slot.id}:{start + 8}"
+                ))
+
             k.row(IButton("➕ Добавить из юзербота", callback_data=f"|slot_chats:add_chat_from_ubot:{slot.id}"))
             k.row(IButton("➕ Добавить списком ChatID", callback_data=f"|slot_chats:add_chats_with_text:{slot.id}"))
             k.row(IButton("‹ Назад", callback_data=f"|slots:see:{slot.id}"))
