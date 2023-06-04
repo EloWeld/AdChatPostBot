@@ -80,7 +80,7 @@ class Keyboards:
                 k.row(IButton(f"💬 {chat['title']} | {chat_id}", callback_data=f"|slot_chats:see_chat:{slot.id}:{chat_id}"))
             if len(slot.chats) > 8:
                 k.row(IButton("⬅️", callback_data=f"|slot_menu:chats:{slot.id}:{start - 8}"))
-                k.insert(IButton("➡️" + ('' if len(slot.chats) < 8*2 else f"{len(slot.chats-start) // 8}"), callback_data=f"|slot_menu:chats:{slot.id}:{start + 8}"))
+                k.insert(IButton("➡️" + ('' if len(slot.chats) < 8*2 else f"{(len(slot.chats) - start) // 8}"), callback_data=f"|slot_menu:chats:{slot.id}:{start + 8}"))
             k.row(IButton("➕ Добавить из юзербота", callback_data=f"|slot_chats:add_chat_from_ubot:{slot.id}"))
             k.row(IButton("➕ Добавить списком ChatID", callback_data=f"|slot_chats:add_chats_with_text:{slot.id}"))
             k.row(IButton("‹ Назад", callback_data=f"|slots:see:{slot.id}"))
