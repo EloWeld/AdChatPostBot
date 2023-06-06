@@ -21,9 +21,7 @@ API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 MONGODB_CONNECTION_URI = os.getenv("MONGODB_CONNECTION_URI", 'mongodb://localhost')
 DB_NAME = os.getenv("DB_NAME")
-
-# Code constants
-INLINE_KEYBOARD_SIZE = 4
+INLINE_KEYBOARD_SIZE = os.getenv("INLINE_KEYBOARD_SIZE", 20)
 
 
 # MongoDB and ORM initialization
