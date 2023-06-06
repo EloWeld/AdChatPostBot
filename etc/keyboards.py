@@ -7,6 +7,7 @@ from aiogram.types import \
     InlineKeyboardButton as IButton
 import pyrogram
 from etc.utils import cutText, remove_html_tags
+from loader import INLINE_KEYBOARD_SIZE
 
 from models import AutopostSlot, PostingField, UserbotSession
 
@@ -58,40 +59,31 @@ class Keyboards:
         def chooseUserbotForSelectChats(slot: AutopostSlot):
             k = IKeyboard()
             for ub in slot.ubots:
-                k.row(IButton(f"{ub.name} | {ub.login}", callback_data=f"|slot_chats:select_ubot_chats:{slot.id}:{ub.id}"))
+                k.row(IButton(f"{ub.name} | {ub.login}", callback_data=f"|slot_chats:select_ubot_chats:{slot.id}:{ub.id}:{0}"))
             k.row(IButton("‹ Назад", callback_data=f"|slots:see:{slot.id}"))
             return k
         
         @staticmethod
-        def chooseChatsFromUbot(slot: AutopostSlot, ubot: UserbotSession, suc: dict):
+        def chooseChatsFromUbot(slot: AutopostSlot, ubot: UserbotSession, suc: dict, start=0):
             k = IKeyboard()
-            for chat_id, chat in ubot.chats.items():
+            for chat_id, chat in list(ubot.chats.items())[start:start+INLINE_KEYBOARD_SIZE]:
                 prefix = "✅ " if chat_id in slot.chats or chat_id in suc else "☑️ "
-                k.row(IButton(prefix + f"{chat['title']} | {chat_id}", callback_data=f"|slot_chats:suc:{slot.id}:{ubot.id}:{chat_id}"))
+                k.row(IButton(prefix + f"{chat['title']} | {chat_id}", callback_data=f"|slot_chats:suc:{slot.id}:{ubot.id}:{chat_id}:{start}"))
+            if len(ubot.chats) > INLINE_KEYBOARD_SIZE:
+                k.add(*Keyboards.create_pagination_buttons(start, ubot.chats, "|slot_chats:select_ubot_chats:{0}:{1}:{2}", slot.id, ubot.id))
+
             if len(suc) > 0:
                 k.row(IButton("🏁 Добавить выбранные", callback_data=f"|slot_chats:apply_suc:{slot.id}"))
             k.row(IButton("‹ Назад", callback_data=f"|slot_menu:chats:{slot.id}"))
             return k
-        
+            
         @staticmethod
         def seeSlotChats(slot: AutopostSlot, start=0):
             k = IKeyboard()
-            for chat_id, chat in list(slot.chats.items())[start:start+8]:
+            for chat_id, chat in list(slot.chats.items())[start:start+INLINE_KEYBOARD_SIZE]:
                 k.row(IButton(f"💬 {chat['title']} | {chat_id}", callback_data=f"|slot_chats:see_chat:{slot.id}:{chat_id}"))
-            if len(slot.chats) > 8:
-                remaining_pages_start = start // 8
-                remaining_pages_end = (len(slot.chats) - start - 8) if (len(slot.chats) - start - 8) >= 0 else 0
-
-                k.row(
-                    IButton("⬅️" + ('' if remaining_pages_start < 1 else f" {remaining_pages_start}"), callback_data=f"|slot_menu:chats:{slot.id}:{start - 8}")
-                    if start - 8 >= 0 else
-                    IButton("⬅️", callback_data=f"|slot_menu:chats:{slot.id}:0")
-                )
-
-                k.insert(IButton(
-                    "➡️" + ('' if remaining_pages_end < 1 else f" {remaining_pages_end // 8+1}"),
-                    callback_data=f"|slot_menu:chats:{slot.id}:{start + 8}"
-                ))
+            if len(slot.chats) > INLINE_KEYBOARD_SIZE:
+                k.add(*Keyboards.create_pagination_buttons(start, slot.chats, "|slot_menu:chats:{0}:{1}", slot.id))
 
             k.row(IButton("➕ Добавить из юзербота", callback_data=f"|slot_chats:add_chat_from_ubot:{slot.id}"))
             k.row(IButton("➕ Добавить списком ChatID", callback_data=f"|slot_chats:add_chats_with_text:{slot.id}"))
@@ -223,3 +215,19 @@ class Keyboards:
         k = IKeyboard()
         k.row(IButton("➖ Скрыть ➖", callback_data="hide"))
         return k
+    
+    @staticmethod
+    def create_pagination_buttons(start, items, callback_format, *callback_args):
+        remaining_pages_start = start // INLINE_KEYBOARD_SIZE
+        remaining_pages_end = (len(items) - start - INLINE_KEYBOARD_SIZE) if (len(items) - start - INLINE_KEYBOARD_SIZE) >= 0 else 0
+
+        buttons = [
+            IButton("⬅️" + ('' if remaining_pages_start < 1 else f" {remaining_pages_start}"), callback_data=f"{callback_format.format(*callback_args, start - INLINE_KEYBOARD_SIZE)}")
+            if start - INLINE_KEYBOARD_SIZE >= 0 else
+            IButton("⬅️", callback_data=f"{callback_format.format(*callback_args, 0)}"),
+            IButton(
+            "➡️" + ('' if remaining_pages_end < 1 else f" {remaining_pages_end // INLINE_KEYBOARD_SIZE+1}"),
+            callback_data=f"{callback_format.format(*callback_args, start + INLINE_KEYBOARD_SIZE)}"
+            )
+        ]
+        return buttons

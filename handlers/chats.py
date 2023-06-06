@@ -17,7 +17,8 @@ from aiogram.types import *
 from models import AutopostSlot, TgUser, UserbotSession
 from slotsThreads import slot_updated
 from states import ChangeSlotStates
-
+from pyrogram.client import Client
+from pyrogram.errors.exceptions.bad_request_400 import PeerIdInvalid
 
 # Обработчик callback-запросов для работы с чатами слотов
 @dp.callback_query_handler(text_contains="|chats", state="*")
@@ -40,7 +41,7 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
 @dp.message_handler(state=ChangeSlotStates.chats)
 async def _(message: types.Message, state: FSMContext):
     global threads
-    chat_ids = message.text.replace('\n', ' ').replace(';', ' ').replace(',', ' ').replace('  ', ' ').split()
+    chat_ids = [x.replace('-100', '').strip() for x in message.text.replace('\n', ' ').replace(';', ' ').replace(',', ' ').split()]
     stateData = await state.get_data()
     
     slot: AutopostSlot = AutopostSlot.objects.raw(
@@ -56,7 +57,7 @@ async def _(message: types.Message, state: FSMContext):
                     continue
             for ubot in slot.ubots:
                 ubot: UserbotSession = ubot
-                client: pyrogram.Client = userbotSessionToPyroClient(ubot)
+                client: Client = userbotSessionToPyroClient(ubot)
                 
                 await client.start()
                 try:
@@ -69,7 +70,7 @@ async def _(message: types.Message, state: FSMContext):
                     try:
                         chat = await client.join_chat(chat_identifier)
                         await message.answer(f"✅ Юзербот <code>{ubot.id}</code> зашёл в чат <code>{chat_identifier}</code>")
-                    except pyrogram.errors.exceptions.bad_request_400.PeerIdInvalid:
+                    except PeerIdInvalid:
                         await message.answer(f"⚠️ Юзербот <code>{ubot.id}</code> не смог зайти в чат <code>{chat_identifier}</code> так как используемый идентификатор чата некорректен. Проверьте что такой чат существует")
                     except Exception as e:
                         print(f"Failed to join the group: {e}")

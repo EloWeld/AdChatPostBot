@@ -19,6 +19,9 @@ from slotsThreads import slot_updated
 from states import ChangeSlotStates
 import datetime
 from etc.utils import cutText, remove_html_tags
+from pyrogram.errors.exceptions.unauthorized_401 import AuthKeyUnregistered
+from pyrogram.errors.exceptions.not_acceptable_406 import AuthKeyDuplicated
+
 
 # Функция для отправки информации о слоте
 async def sendSlot(msg: Message, slot: AutopostSlot, edit=False):
@@ -84,23 +87,35 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
         slot = AutopostSlot.objects.get({"_id": actions[1]})
         ubot = UserbotSession.objects.get({"_id": actions[2]})
         client = userbotSessionToPyroClient(ubot)
-        await c.answer('ℹ️ Загружаю чаты... Это может занять время')
-        try:
-            await client.start()
-            dialogs = client.get_dialogs()
-            async for dialog in dialogs:
-                dialog: pyrogram.types.Dialog = dialog
-                chat: Chat = dialog.chat
-                chat_id = chat.id
-                if chat.type not in [pyrogram.enums.ChatType.GROUP, pyrogram.enums.ChatType.SUPERGROUP]:
-                    continue
-                ubot.chats[str(chat_id)] = json.loads(json.dumps(chat.__dict__, ensure_ascii=False, default=str))
-            ubot.save()
-        except pyrogram.errors.exceptions.unauthorized_401.AuthKeyUnregistered:
-            await c.message.answer('ℹ️ Пожалуйста, переавторизируйте юзербота, не удаётся получить список чатов')
-            return
-        await c.message.edit_text("💬 Выберите чаты для добавления", reply_markup=Keyboards.SlotChats.chooseChatsFromUbot(slot, ubot, {}))
-        await state.update_data(suc={})
+        start = int(actions[-1])
+        stateData = await state.get_data()
+        suc = stateData.get("suc", {})
+        if 'ubot_chats' not in stateData:
+            await c.answer('ℹ️ Загружаю чаты... Это может занять время')
+            try:
+                await client.start()
+                dialogs = client.get_dialogs()
+                async for dialog in dialogs:
+                    dialog: pyrogram.types.Dialog = dialog
+                    chat: Chat = dialog.chat
+                    chat_id = chat.id
+                    if chat.type not in [pyrogram.enums.ChatType.GROUP, pyrogram.enums.ChatType.SUPERGROUP]:
+                        continue
+                    ubot.chats[str(chat_id)] = json.loads(json.dumps(chat.__dict__, ensure_ascii=False, default=str))
+                ubot.save()
+                await state.update_data(ubot_chats=ubot.chats)
+            
+            except AuthKeyUnregistered:
+                await c.message.answer('ℹ️ Пожалуйста, переавторизируйте юзербота, не удаётся получить список чатов')
+                return
+            except AuthKeyDuplicated:
+                await c.message.answer('ℹ️ Пожалуйста, переавторизируйте юзербота, не удаётся получить список чатов')
+                return
+            await state.update_data(suc={})
+        else:
+            await c.answer()
+        await c.message.edit_text("💬 Выберите чаты для добавления", reply_markup=Keyboards.SlotChats.chooseChatsFromUbot(slot, ubot, suc, start))
+        
         
     if actions[0] == "add_chats_with_text":
         await c.message.edit_text("💬 Введите все CHAT ID/JoinLink/Username чатов которые хотите включить в рассылку, разделяя их <b>\",\"</b>,<b>\";\"</b>,<b>\" \"</b> или переносом строки",
@@ -109,17 +124,20 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
         await ChangeSlotStates.chats.set()
         
     if actions[0] == "suc":
+        await c.answer()
         slot = AutopostSlot.objects.get({"_id": actions[1]})
         ubot = UserbotSession.objects.get({"_id": actions[2]})
         chat = ubot.chats[actions[3]]
+        start = int(actions[-1])
         suc = (await state.get_data()).get('suc', {})
-        if str(chat['id']) not in suc:
-            suc[str(chat['id'])] = chat
-        else:
-            del suc[str(chat['id'])]
+        if str(chat['id']) not in slot.chats:
+            if str(chat['id']) not in suc:
+                suc[str(chat['id'])] = chat
+            else:
+                del suc[str(chat['id'])]
         #slot.chats[chat['id']] = chat
         await state.update_data(suc=suc)
-        await c.message.edit_text("💬 Выберите чаты для добавления", reply_markup=Keyboards.SlotChats.chooseChatsFromUbot(slot, ubot, suc))
+        await c.message.edit_text("💬 Выберите чаты для добавления", reply_markup=Keyboards.SlotChats.chooseChatsFromUbot(slot, ubot, suc, start))
         
     if actions[0] == "apply_suc":
         suc = (await state.get_data())['suc']

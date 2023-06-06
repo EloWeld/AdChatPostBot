@@ -22,6 +22,10 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 MONGODB_CONNECTION_URI = os.getenv("MONGODB_CONNECTION_URI", 'mongodb://localhost')
 DB_NAME = os.getenv("DB_NAME")
 
+# Code constants
+INLINE_KEYBOARD_SIZE = 4
+
+
 # MongoDB and ORM initialization
 MDB = pymongo.MongoClient(MONGODB_CONNECTION_URI).get_database(DB_NAME)
 connect(MONGODB_CONNECTION_URI+f"/{DB_NAME}?authSource=admin", alias="pymodm-conn")
