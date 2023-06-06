@@ -41,7 +41,7 @@ async def _(c: CallbackQuery, state: FSMContext, user: TgUser):
 @dp.message_handler(state=ChangeSlotStates.chats)
 async def _(message: types.Message, state: FSMContext):
     global threads
-    chat_ids = [x.replace('-100', '').strip() for x in message.text.replace('\n', ' ').replace(';', ' ').replace(',', ' ').split()]
+    chat_ids = [x.strip() for x in message.text.replace('\n', ' ').replace(';', ' ').replace(',', ' ').split()]
     stateData = await state.get_data()
     
     slot: AutopostSlot = AutopostSlot.objects.raw(
@@ -52,9 +52,11 @@ async def _(message: types.Message, state: FSMContext):
     else:
         for chat_identifier in chat_ids:
             for slot_chat_id, slot_chat in slot.chats.items():
-                if str(chat_identifier).replace('@', '') in [str(slot_chat['id']), str(slot_chat['username'])]:
+                if chat_identifier.replace('@', '') in [str(slot_chat['username'])]:
                     await message.answer(f"⚠️ Чат <code>{chat_identifier}</code> был уже добавлен в список чатов" )
                     continue
+            if '-100' in chat_identifier:
+                chat_identifier = int(chat_identifier)
             for ubot in slot.ubots:
                 ubot: UserbotSession = ubot
                 client: Client = userbotSessionToPyroClient(ubot)
@@ -68,7 +70,7 @@ async def _(message: types.Message, state: FSMContext):
                 if chat is None or isinstance(chat, pyrogram.types.ChatPreview):
                     # If chat is None - try to join
                     try:
-                        chat = await client.join_chat(chat_identifier)
+                        chat = await client.get_chat(chat_identifier)
                         await message.answer(f"✅ Юзербот <code>{ubot.id}</code> зашёл в чат <code>{chat_identifier}</code>")
                     except PeerIdInvalid:
                         await message.answer(f"⚠️ Юзербот <code>{ubot.id}</code> не смог зайти в чат <code>{chat_identifier}</code> так как используемый идентификатор чата некорректен. Проверьте что такой чат существует")
